@@ -20,11 +20,24 @@
   "take n bytes from given sequence and delivers vector with
    remaining bytes and unsigned integer representation.
    example (rest-uint-n-pair 2 [0x03 0x01 0xFA 0xFB]) -> [(0xFA 0xFB) 259 ]"
-  [n bytes] [(drop n bytes) (bytes2little-endian-uint (take n bytes))])
+  [n bytes]
+  [(drop n bytes) (bytes2little-endian-uint (take n bytes))])
 
 (def rest-uint8-pair (partial rest-uint-n-pair 1))
 (def rest-uint16-pair (partial rest-uint-n-pair 2))
 (def rest-uint32-pair (partial rest-uint-n-pair 4))
+
+(defn- bytes2utf16-str
+  "converts given byte sequence in UTF-16 character string
+   (without BOM)."
+  [bytes]
+  (String. (byte-array bytes)))
+
+(defn- rest-utf16-pair
+  "takes n bytes from given sequence and deliver a vector with
+  remaining bytes and UTF-16 character string."
+  [n bytes]
+  [(drop n bytes) (bytes2utf16-str (take n bytes))])
 
 (defn- tabs
   "generates a string of specified numer of blanks used as tabulating characters"
@@ -60,13 +73,6 @@
     (print-hex-content (+ 2 level) payload)
     byte-buffer))
 
-(defn- bytes2utf16-str
-  "converts given byte sequence in UTF-16 character string
-   (without BOM)."
-  [bytes]
-  (String. bytes))
-
-
 (defn- print-nv-numbered-items
   "prints all numbered legacy NV items in binary form at given
    tabulator level."
@@ -76,10 +82,39 @@
   (when (> (count stream) 0)
     (recur (print-next-numbered-item level stream)))))
 
+(defn- print-mobile-property-info
+  "prints the mobile property info at given tabulator level"
+  [level byte-buffer]
+  (println (tabs level) "////// MOBILE PROPERTY INFO ///////")
+  (let [level (inc level)
+        [byte-buffer efs] (rest-uint32-pair byte-buffer)
+        [byte-buffer mobile-model-no] (rest-uint16-pair byte-buffer)
+        [byte-buffer phone-nv-major-rev-no] (rest-uint8-pair byte-buffer)
+        [byte-buffer phone-nv-minor-rev-no] (rest-uint8-pair byte-buffer)
+        [byte-buffer phone-sw-version-str-len] (rest-uint16-pair byte-buffer)
+        [byte-buffer phone-sw-version] (rest-utf16-pair phone-sw-version-str-len byte-buffer)
+        [byte-buffer qpst-app-version-str-len] (rest-uint16-pair byte-buffer)
+        [byte-buffer qpst-app-version-str] (rest-utf16-pair qpst-app-version-str-len byte-buffer)]
+    (println (tabs level) (format "efs:%x" efs))
+    (println (tabs level) (format "mobile-phone-no:%d" efs))
+    (println (tabs level) (format "phone-nv-rev-no:%d.%d" phone-nv-major-rev-no phone-nv-minor-rev-no))
+    (println (tabs level) (format "mobile-phone-sw-version:%s" phone-sw-version))
+    (println (tabs level) (format "qpst and app version:%s" qpst-app-version-str))))
+
+(defn- print-file-version-info
+  "prints the file version info tag at given tabulator level"
+  [level byte-buffer]
+  (println (tabs level) "////// FILE VERSION ///////")
+  (let [level (inc level)
+        [byte-buffer qcn-major-no] (rest-uint16-pair byte-buffer)
+        [byte-buffer qcn-minor-no] (rest-uint16-pair byte-buffer)
+        [byte-buffer qcn-rev-no] (rest-uint16-pair byte-buffer)]
+    (println (tabs level) (format "qcn number (major,minor,rev):%d.%d.%d" qcn-major-no qcn-minor-no qcn-rev-no))))
 
 (defn- print-document-node
   "prints NV documet storage. Currently the following storage
-   types are processed: EFS_Dir, EFS_Data, NV_ITEM_ARRAY (legacy)."
+   types are processed: EFS_Dir, EFS_Data, NV_ITEM_ARRAY (legacy)
+                        Mobile_Property_Info File_Version"
   [level node]
   (let [name (.getName node)
         size (.getSize node)
@@ -93,7 +128,10 @@
       (= parent-dir "EFS_Data") (do (println (tabs level) name ", size:" size)
                                     (print-hex-content level content))
       (= name "NV_ITEM_ARRAY") (print-nv-numbered-items level content)
+      (= name "Mobile_Property_Info") (print-mobile-property-info level content)
+      (= name "File_Version") (print-file-version-info level content)
       :else (println (tabs level) "unprocccesed stream " name))))
+
 
 
 (defn print-poifs-tree
