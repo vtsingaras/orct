@@ -87,11 +87,12 @@
         [byte-buffer qcn-rev-no] (rest-uint16-pair byte-buffer)]
     (hash-args qcn-major-no qcn-minor-no qcn-rev-no)))
 
+
 (defn- read-document-node
   "read NV documet storage. Currently the following storage
    types are processed: EFS_Dir, EFS_Data, NV_ITEM_ARRAY (legacy)
                         Mobile_Property_Info File_Version"
-  [*result* node]
+  [result node]
   (let [name (.getName node)
         size (.getSize node)
         stream (DocumentInputStream. node)
@@ -102,24 +103,23 @@
       (= parent-dir "EFS_Dir")
       (let [path (bytes2utf16-str content)
             type (.getName (.getParent (.getParent node)))]
-        (swap! *result* assoc-in [type name :path] path)
-        )
+        (assoc-in result [type name :path] path))
 
       (= parent-dir "EFS_Data")
       (let [type (.getName (.getParent (.getParent node)))]
-        (swap! *result* assoc-in [type name :data] content)
-        )
+        (assoc-in result [type name :data] content))
 
       (= name "NV_ITEM_ARRAY")
-      (swap! *result* assoc-in [name] (read-nv-numbered-items content))
+      (assoc-in result [name] (read-nv-numbered-items content))
 
       (= name "Mobile_Property_Info")
-      (swap! *result* assoc-in [name] (read-mobile-property-info content))
+      (assoc-in result [name] (read-mobile-property-info content))
 
       (= name "File_Version")
-      (swap! *result* assoc-in [name] (read-file-version-info content))
+      (assoc-in result [name] (read-file-version-info content))
 
-      :else (swap! *result* assoc-in [:unprocessed name] content))))
+      :else (assoc-in result [:unprocessed name] content))))
+
 
 (defn read-poifs-tree
   "reads poi filesystem with specified root node and returns result as
@@ -128,22 +128,22 @@
   invocation example:
   (read-poifs-tree (.getRoot (POIFSFileSystem. (FileInputStream. 'input-file.qcn'))))"
   [node]
-  (let [*result* (atom {})]
-    (letfn [(readfn [node]
-              (cond
-                (= (class node) DirectoryNode)
-                (let [s (iterator-seq (.getEntries node))
-                      c (.getEntryCount node)
-                      path (.getPath node)
-                      name (.getName node)]
-                  (dorun (map readfn s)))
+  (letfn [(readfn [result node]
+            (cond
+              (= (class node) DirectoryNode)
+              (let [s (iterator-seq (.getEntries node))
+                    c (.getEntryCount node)
+                    path (.getPath node)
+                    name (.getName node)]
+                (reduce (fn [res node] (readfn res node)) result s))
 
-                (= (class node) DocumentNode)
-                (dorun (read-document-node *result* node))
-                :else
-                (throw (IllegalStateException. (str "class " (class node) " undefined error!")))))]
-      (readfn node)
-      @*result*)))
+              (= (class node) DocumentNode)
+              (read-document-node result node)
+              :else
+              (throw (IllegalStateException. (str "class " (class node) " undefined error!")))))]
+    (readfn {} node)))
+
+
 
 
 (defn- tabs
@@ -229,6 +229,8 @@
 
   (def qcn-input-stream (FileInputStream. "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/SW_QCN_BC_02_NA_ATnT_GSM_Dual_WCDMA_2+5_LTE_2+4+5+12+17_VoLTE.qcn"))
 
+  (def qcn-input-stream (FileInputStream. "/home/ol/Entwicklung/nv_items/SW_QCN_BC_02_NA_ATnT_GSM_Dual_WCDMA_2+5_LTE_2+4+5+12+17_VoLTE.qcn"))
+
 
   (def fs (POIFSFileSystem. qcn-input-stream))
 
@@ -238,6 +240,7 @@
   (def x (read-poifs-tree (.getRoot fs)))
 
   (println x)
+
   (println (keys x))
   (println (x "NV_Items"))
   (println (x "Provisioning_Item_Files"))
