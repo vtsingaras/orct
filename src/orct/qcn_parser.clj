@@ -1,34 +1,11 @@
 (ns orct.qcn-parser
   (:use [orct.macros]
+        [orct.utils]
         [orct.nv-xml] ;; only temporary
         )
   (:import java.nio.ByteBuffer java.io.FileInputStream
            [org.apache.poi.poifs.filesystem POIFSFileSystem DirectoryNode DocumentNode
             DocumentInputStream DocumentOutputStream]))
-
-(defn- bytes2little-endian-uint
-  "interprets given byte sequence e.g. specified as Java array
-   into corresponding little endian unsigned integer representation.
-   example: (bytes2little-endian-uint [0x03 0x01]) -> 259"
-  [bytes]
-  {:pre [(<= (count bytes) 8)]
-   :post [(>= % 0)]}
-  (let [byte-pos-pairs (partition 2 (interleave bytes (range (count bytes)) ))]
-    (reduce (fn [result [next-byte pos]]
-              (+ result (bit-shift-left (bit-and next-byte 0xff) (* 8 pos))))
-            0 byte-pos-pairs)))
-
-(defn- bytes2little-endian-int
-  "interprets given byte sequence e.g. specified as Java array
-   into corresponding little endian signed integer representation.
-   example: (bytes2little-endian-uint [0x03 0x01]) -> 259"
-  [bytes]
-  (let [sign (bit-and 0x80 (last bytes))
-        ures (bytes2little-endian-uint bytes)]
-    (if (= 0 sign)
-      ures
-      (- ures (bit-shift-left 1 (* 8 (count bytes)))))))
-
 
 (defn- rest-uint-n-pair
   "take n bytes from given sequence and delivers vector with
@@ -55,12 +32,6 @@
 (def rest-int32-pair (partial rest-int-n-pair 4))
 (def rest-int64-pair (partial rest-int-n-pair 8))
 
-(defn bytes2str
-  "remove C like '0' termination characters from given string"
-  [str]
-  (let [s (seq (if (= java.lang.String (class str)) (.getBytes str) str))
-        t (loop [s (reverse s)] (if (= (first s) 0) (recur (rest s)) s))]
-    (String. (byte-array (reverse t)))))
 
 (defn- rest-str-pair
   "takes n bytes from given sequence and deliver a vector with
@@ -68,6 +39,31 @@
   [n bytes]
   [(drop n bytes) (bytes2str (take n bytes))])
 
+(defn- repeat-ops
+  "execute operation op n times with given byte-buffer.
+   returns vector of first element with remaining bytes and
+   the second element the actual result."
+  [op n byte-buffer]
+  (loop [result []  byte-buffer (seq byte-buffer)  remain n]
+    (if (> remain 0)
+      (let [[byte-buffer r] (op byte-buffer)]
+          (recur (conj result r) byte-buffer (dec remain)))
+      [byte-buffer result])))
+
+
+(defn- is-byte-array-str?
+  [a]
+  (let [s (.getBytes (bytes2str a))]
+    (and (> (count s) 2) (every? #(and (> % 31) (< % 128)) s))))
+
+
+(def rest-uint8-or-str-pair
+  (with-meta
+    (fn [n byte-buffer]
+      (if (is-byte-array-str? (take n byte-buffer))
+        [(drop n byte-buffer) [(bytes2str (take n byte-buffer))]]
+        (repeat-ops rest-uint8-pair n byte-buffer)))
+    {:dont-repeat true}))
 
 
 (defn decode-binary-nv-params
@@ -76,29 +72,29 @@
    [{:name <parameter-name> :type <int8, int16, ...>, :size <length in bytes>}, ...].
    The result is stored within the hash table entires under the newly
    added key :val."
-  [schema data]
+  [schema data & {:keys [flag]}]
   (let [res (reduce
               (fn [out
                    {:keys [name type size] :as args}]
                 (let [params (or (:params out) [])
                       byte-buffer (:byte-buffer out)
-                      ;; ATTENTION: sizeOf is not implemented yet
                       op (case type
                            "int8" rest-int8-pair
                            "int16" rest-int16-pair
                            "int32" rest-int32-pair
                            "int64" rest-int64-pair
-                           "uint8" rest-uint8-pair
+                           "uint8" rest-uint8-or-str-pair
                            "uint16" rest-uint16-pair
                            "uint32" rest-uint32-pair
                            "uint64" rest-uint32-pair
                            "string" rest-str-pair
                            (throw (IllegalStateException. (format "type %s invalid!" type))))
-                      [byte-buffer dec-value] (op byte-buffer)]
+                      [byte-buffer dec-value] (if (:dont-repeat (meta op))
+                                                (op size byte-buffer)
+                                                (repeat-ops op size byte-buffer))]
                   (-> out
                       (assoc :params (conj params (-> args (assoc-in [:val] dec-value))))
-                      (assoc :byte-buffer byte-buffer)
-                      )))
+                      (assoc :byte-buffer byte-buffer))))
               {:byte-buffer data}
               schema)]
     (:params res)))
@@ -127,14 +123,16 @@
   )
 
 
+
 (defn- read-next-numbered-item
-  "parses next numbered NV item from given sequence and returns
+  "parse next numbered NV item from given sequence and returns
    the item as Clojure hash map and remaining unprocessed bytes
    of the input sequence."
-  [schema result byte-buffer]
+  [schema result byte-buffer errors]
   (let [[byte-buffer stream-size] (rest-uint16-pair byte-buffer)
         [byte-buffer index] (rest-uint16-pair byte-buffer)
         [byte-buffer item] (rest-uint16-pair byte-buffer)
+        item (str2int item)
         [byte-buffer padding] (rest-uint16-pair byte-buffer)
         payload-size (- stream-size 8)
         [byte-buffer payload] [(drop payload-size byte-buffer) (take payload-size byte-buffer)]
@@ -146,17 +144,21 @@
     (let [result (assoc-in result [item :data] payload)
           result (assoc-in result [item :index] index)
           result (assoc-in result [item :name] item-name)
-          result (assoc-in result [item :params] (decode-binary-nv-params item-schema payload))]
-      [result byte-buffer])))
+          result (assoc-in result [item :params] (decode-binary-nv-params item-schema payload))
+          errors (if-not item-schema
+                   (conj errors (format "missing schema definition for legacy nv item %d" item))
+                   errors)]
+      [result byte-buffer errors])))
 
 
 (defn- read-nv-numbered-items
   "read all numbered legacy NV items as binary data."
   [schema content]
-  (loop [[result stream]  [{} content]]
+  (loop [[result stream errors]  [(sorted-map) content []]]
     (if (> (count stream) 0)
-      (recur (read-next-numbered-item schema result stream))
-      result)))
+      (recur (read-next-numbered-item schema result stream errors))
+      [result errors])))
+
 
 (defn- read-mobile-property-info
   "read the mobile property info tags"
@@ -172,6 +174,7 @@
     (hash-args efs mobile-model-no phone-nv-major-rev-no phone-nv-minor-rev-no
                phone-sw-version qpst-app-version)))
 
+
 (defn- read-file-version-info
   "read the file version info tags"
   [byte-buffer]
@@ -183,20 +186,20 @@
 
 (defn- read-document-node
   "read NV documet storage. Currently the following storage
-   types are processed: EFS_Dir, EFS_Data, NV_ITEM_ARRAY (legacy)
-                        Mobile_Property_Info File_Version"
+  types are processed: EFS_Dir, EFS_Data, NV_ITEM_ARRAY (legacy)
+  Mobile_Property_Info File_Version"
   [schema result node]
   (let [name (.getName node)
         size (.getSize node)
         stream (DocumentInputStream. node)
         content (byte-array (.available stream))
-        parent-dir (.getName (.getParent node))]
+        parent-dir (.getName (.getParent node))
+        errors (or (:errors result) [])]
     (doto stream (.read content) (.close))
     (cond
       (= parent-dir "EFS_Dir")
       (let [path (bytes2str content)
             type (.getName (.getParent (.getParent node)))]
-        (def content content)
         (assoc-in result [type name :path] path))
 
       (= parent-dir "EFS_Data")
@@ -206,13 +209,21 @@
             path (:path nv)
             path-schema ((:efs-items schema) path)
             item-schema (:content path-schema)
-            result (assoc-in result [type name :data] content)
-            result (assoc-in result [type name :params] (decode-binary-nv-params item-schema content))]
+            errors (if-not item-schema
+                     (conj errors (format "missing schema definition for nv item path %s" path))
+                     errors)]
         (when-not path (throw (IllegalStateException. (format "EFS_Dir missing for nv %s,%s" type name))))
-        result)
+        (-> result
+            (assoc-in [type name :data] content)
+            (assoc-in [type name :params] (decode-binary-nv-params item-schema content))
+            (assoc-in [:errors] errors)))
 
       (= name "NV_ITEM_ARRAY")
-      (assoc-in result [name] (read-nv-numbered-items schema content))
+      (let [[num-items num-errors] (read-nv-numbered-items schema content)
+            errors (keep identity (concat errors num-errors))]
+        (-> result
+            (assoc-in [name] num-items)
+            (assoc-in [:errors] errors)))
 
       (= name "Mobile_Property_Info")
       (assoc-in result [name] (read-mobile-property-info content))
@@ -221,34 +232,6 @@
       (assoc-in result [name] (read-file-version-info content))
 
       :else (assoc-in result [:unprocessed name] content))))
-
-(comment
-
-  type
-  nv-type-store
-  nv
-  my-path
-  (println path)
-  (.getBytes (str (last path)))
-  (count (.getBytes path))
-  (partition 2 (.getBytes path))
-
-  (map #(println %)  (.getBytes path))
-  (map #(println %)  content)
-
-  (bytes2str content)
-
-  (map (fn [[l h]] (println (format "%x %x" h l)))  (partition 2 (.getBytes path)))
-
-
-
-  (map #(println %)  (.getBytes (str (last path))))
-
-  ((:efs-items nv-definition-schema) path)
-  ((:efs-items nv-definition-schema) "/nv/item_files/ims/qipcall_is_conf_server_refer_recipient")
-
-  )
-
 
 
 (defn read-poifs-tree
@@ -282,37 +265,58 @@
   [level]
   (apply str (repeat (* 2 level) " ")))
 
-(defn- print-hex-content
-  "print binary content with given tabulating level"
-  [level content]
-  (let [max-columns 16
-        max-elements 128
-        given-elements (count content)
+
+(defn- print-val-seq
+  "print sequence over multiple lines with given tabulating level"
+  [level content format-str & {:keys [max-columns max-elements] :or {max-columns 16
+                                                                     max-elements 128}}]
+  (let [given-elements (count content)
         content (take max-elements content)
         colums (partition-all max-columns content)
         hex-line
-        (fn [x] (apply str (map #(format "%2x " %) x)))]
+        (fn [x] (apply str (map #(format format-str %) x)))]
     (dorun (map #(println (tabs level) (hex-line %)) colums))
     (when (> given-elements max-elements) (println (tabs level) " ..."))))
+
+
+(defn print-hex-content
+  "print binary content in hex format with given tabulating level"
+  [level content & args]
+  (apply print-val-seq (concat [level content "%2x "] args)))
+
+(defn print-dec-content
+  "print binary content in hex format with given tabulating level"
+  [level content & args]
+  (apply print-val-seq (concat [level content "%3d "] args)))
 
 
 (defn- print-legacy-items
   [items]
   (dorun (map (fn [[item {:keys [index data name params]}]]
                 (println (format "%sitem:%s, index:%s, name:%s" (tabs 3) item index name))
-                (dorun (map (fn [{:keys [name val]}]
-                              (println (format "%s%s -> %s" (tabs 6) name val))) params))
-                ;(print-hex-content 6 data)
-                ) items)))
+                (if params
+                  (dorun (map (fn [{:keys [name val]}]
+                                (print (format "%s%s -> " (tabs 6) name))
+                                (if (<= (count val) 16)
+                                  (if (= (count val) 1) (println (first val)) (println val))
+                                  (do (println) (print-dec-content 6 val)))) params))
+                  (do
+                    (println (tabs 6) "-- missing Schema for this parameter! --")
+                    (print-hex-content 6 data)))) items)))
 
 (defn- print-efs-items
   [items]
   (dorun (map (fn [[item {:keys [path data params]}]]
                 (println (format "%spath:%s" (tabs 3) path))
-                (dorun (map (fn [{:keys [name val]}]
-                              (println (format "%s%s -> %s" (tabs 6) name val))) params))
-                ;(print-hex-content 6 data)
-                ) items)))
+                (if params
+                  (dorun (map (fn [{:keys [name val]}]
+                                (print (format "%s%s -> " (tabs 6) name))
+                                (if (<= (count val) 16)
+                                  (if (= (count val) 1) (println (first val)) (println val))
+                                  (do (println) (print-dec-content 6 val)))) params))
+                  (do
+                    (println (tabs 6) "-- missing Schema for this parameter! --")
+                    (print-hex-content 6 data)))) items)))
 
 (defn- print-mobile-property-info
   [prop]
@@ -337,7 +341,8 @@
         prov-items (nv "Provisioning_Item_Files")
         backup-items (nv "NV_ITEM_ARRAY")
         mobile-properties (nv "Mobile_Property_Info")
-        file-version (nv "File_Version")]
+        file-version (nv "File_Version")
+        errors (:errors nv)]
     (println ">>>>> File Info >>>>>")
     (print-file-version-info file-version)
     (println ">>>>> Mobile Property Info >>>>>")
@@ -347,15 +352,21 @@
     (println ">>>>> EFS Item Backup >>>>>")
     (print-efs-items efs-backup-items)
     (println ">>>>> Provisioning Item Files >>>>>")
-    (print-efs-items prov-items)))
+    (print-efs-items prov-items)
+    (when-not (empty? errors)
+      (do
+        (println "\n==================== ERRORS ====================")
+        (dorun (map #(println %) errors))
+        (println)))))
 
 
 (defn print-qcn
   "prints content of specified qcn NV item file. This is mainly
    useful for debugging purposes."
   [schema filename]
-  (print-nv-item-set
-   (read-poifs-tree schema (.getRoot (POIFSFileSystem. (FileInputStream. filename))))))
+  (let [nv (read-poifs-tree schema (.getRoot (POIFSFileSystem. (FileInputStream. filename))))]
+    ;(def nv nv)
+    (print-nv-item-set nv)))
 
 
 
@@ -374,19 +385,19 @@
   (def node (. fs getRoot))
 
 
-  (def x (read-poifs-tree nv-definition-schema (.getRoot fs)))
+  (def nv (read-poifs-tree nv-definition-schema (.getRoot fs)))
 
-  (println x)
+  (println nv)
 
-  (println (keys x))
-  (println (x "NV_Items"))
-  (println (x "Provisioning_Item_Files"))
-  (println (x "NV_ITEM_ARRAY"))
-  (println (x "Mobile_Property_Info"))
-  (println (x "File_Version"))
+  (println (keys nv))
+  (println (nv "NV_Items"))
+  (println (nv "Provisioning_Item_Files"))
+  (println (nv "NV_ITEM_ARRAY"))
+  (println (nv "Mobile_Property_Info"))
+  (println (nv "File_Version"))
 
 
-  (print-nv-item-set x)
+  (print-nv-item-set nv)
 
   (count nv-definition-schema)
 
