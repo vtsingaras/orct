@@ -1,3 +1,13 @@
+;; Open Radio Calibration Toolkit
+;; An enhanced Open Source Implementation to replace Qualcomm's QRCT
+;;
+;; The use and distribution terms for this software are covered by
+;; the GNU General Public License
+;;
+;; (C) 2015, Otto Linnemann
+;;
+;; utils.cljs - utility functions, mostly for data conversion
+
 (ns orct.utils)
 
 

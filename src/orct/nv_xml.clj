@@ -1,3 +1,13 @@
+;; Open Radio Calibration Toolkit
+;; An enhanced Open Source Implementation to replace Qualcomm's QRCT
+;;
+;; The use and distribution terms for this software are covered by
+;; the GNU General Public License
+;;
+;; (C) 2015, Otto Linnemann
+;;
+;; nv-xml.cljs - parser for NV definition schema and QCN xml input data
+
 (ns orct.nv-xml
   (:use [orct.utils])
   (:require [clojure.xml :as xml]
