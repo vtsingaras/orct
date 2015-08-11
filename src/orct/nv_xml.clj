@@ -11,7 +11,8 @@
 (ns orct.nv-xml
   (:use [orct.utils])
   (:require [clojure.xml :as xml]
-            [clojure.zip :as z])
+            [clojure.zip :as z]
+            [clojure.string :as str])
   (:import java.nio.ByteBuffer java.io.FileInputStream))
 
 
@@ -66,13 +67,113 @@
           (recur result (z/next loc)))))))
 
 
+(defn- extend-to-same-path
+  "extends non fully qualified filename with same path
+  as fully qualified or accessible template file."
+  [template-file-name filename-to-extend]
+  (let [sep (java.io.File/separator)
+        t (java.io.File. template-file-name)
+        p (.getParent t)]
+    (str p sep filename-to-extend)))
+
+
+(defn parse-nv-data-file
+  "parse NvDefintion file which provides the xml schema definition
+  for mobile phone NV item setup."
+  [filename]
+  (let [nv-def-xml (xml/parse filename)]
+    (loop [result {} loc (z/xml-zip nv-def-xml)]
+      (if (z/end? loc)
+        result
+        (let [n (z/node loc)
+              content (-> n :content)
+              errors (:errors result)
+              result (cond
+                       (= (:tag n) :xi:include)
+                       (let [xml-include (-> n :attrs :href)
+                             include-file (first (str/split xml-include #"#"))
+                             fully-qualified-input-file (extend-to-same-path filename include-file)]
+                         (let [inside (parse-nv-data-file fully-qualified-input-file)
+                               errors (concat (:errors result) (:errors inside))
+                               result (merge-with merge (dissoc result :errors) (dissoc inside :errors))]
+                           (-> result (assoc-in [:errors] errors))))
+
+                       (= (:tag n) :NvItem)
+                       (let [id (keyword (-> n :attrs :id))
+                             errors (if (-> result :nv-item id)
+                                      (conj errors (format "nv item %s multiple defined!" (key2str id)))
+                                      errors)
+                             update (-> result
+                                        (assoc-in [:errors] errors)
+                                        (assoc-in [:nv-items id :name] (-> n :attrs :name))
+                                        (assoc-in [:nv-items id :mapping ] (-> n :attrs :mapping))
+                                        (assoc-in [:nv-items id :encoding] (-> n :attrs :encoding))
+                                        (assoc-in [:nv-items id :content]
+                                                  content))]
+                         update)
+
+                       (= (:tag n) :NvEfsItem)
+                       (let [name (keyword (-> n :attrs :fullpathname))
+                             errors (if (-> result :efs-items name)
+                                      (conj errors (format "efs item %s multiple defined!" (key2str name)))
+                                      errors)
+                             update (-> result
+                                        (assoc-in [:errors] errors)
+                                        (assoc-in [:efs-items name :index ] (-> n :attrs :index))
+                                        (assoc-in [:efs-items name :mapping ] (-> n :attrs :mapping))
+                                        (assoc-in [:efs-items name :encoding] (-> n :attrs :encoding))
+                                        (assoc-in [:efs-items name :provisioning-store]
+                                                  (-> n :attrs :useProvisioningStore))
+                                        (assoc-in [:efs-items name :content]
+                                                  content))]
+                         (when (= name :/nv/item_files/modem/mmode/supplement_service_domain_pref)
+                           (def my-node n))
+                         update)
+
+                       :else result)]
+          (recur result (z/next loc)))))))
+
 
 (comment
 
-  (println (xml/parse "/samples/NvDefinition.xml"))
-
-
   (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
+
+
+  (def x (xml/parse "samples/Masterfile.xml"))
+  (println x)
+
+  (def x (parse-nv-data-file "samples/Masterfile.xml"))
+  (println x)
+  (println (:errors x))
+
+  (def my-node nil)
+  my-node
+
+  (map #(println % "\n=========================\n") (:nv-items x))
+  (map #(println % "\n=========================\n") (:efs-items x))
+  (map #(println %) ((:nv-items x) :855))
+  (map #(println %) ((:nv-items x) :1015))
+  (map #(println %) ((:nv-items x) :1031))
+  (map #(println %) ((:nv-items x) :3532))
+  (map #(println %) ((:nv-items x) :6873))
+  (println (keys (:nv-items x)))
+
+  (println (keys (:efs-items x)))
+  (println ((:efs-items x) :/nv/item_files/ims/qp_ims_sms_config))
+
+  (def a (read-string "[0x01, 0x0f, 0x0A, 0xFF, 127]"))
+  (def b (read-string "[0x01, (+ 2 3), 0x0A, 0xFF, 127]"))
+  (def c (read-string "[\"hallo\", (+ 2 3), 0x0A, 0xFF, 127]"))
+  (def d (read-string "[\"hallo\", 3234.234, 0x0A, 0xFF, 127]"))
+  (map number? a)
+  (map number? b)
+  (every? #(or (number? %) (string? %)) d)
+
+  (read-string "(+ 1 2)")
+
+  (println nv-sample)
+  (println nv-efs-sample)
+
 
   (map #(println %) (:errors nv-definition-schema))
   (map #(println %) (:nv-items nv-definition-schema))

@@ -1,0 +1,78 @@
+<NvSource xmlns:xi="http://www.w3.org/2001/XInclude">
+  <!-- Includes -->
+
+  <NvItem id="1014" name="NV_SMS_GW_CB_SERVICE_TABLE_I" mapping="direct" encoding="hex">0x0,0x1,0x1112,0x112d,0x1</NvItem>
+
+  <NvItem id="1015" name="NV_SMS_GW_CB_SERVICE_TABLE_SIZE_I" mapping="direct" encoding="hex">0x1c</NvItem>
+
+  <NvItem id="1017" name="NV_SMS_GW_CB_USER_PREF_I" mapping="direct" encoding="hex">0x02</NvItem>
+
+  <NvItem id="1341" name="NV_TCP_GRACEFUL_DORMANT_CLOSE_I" mapping="direct" encoding="hex">0x01</NvItem>
+
+  <NvItem id="1896" name="NV_IPV6_ENABLED_I" mapping="direct" encoding="hex">0 </NvItem>
+
+  <NvItem id="1918" name="NV_AAGPS_DEFAULT_QOS_TIME_I" mapping="direct" encoding="dec">64</NvItem>
+
+  <NvItem id="1920" name="NV_AAGPS_POSITIONING_MODES_SUPPORTED_I" mapping="direct" encoding="hex">0x79</NvItem>
+
+  <NvItem id="3461" name="NV_ENS_ENABLED_I" mapping="direct" encoding="dec">1 </NvItem>
+
+  <NvItem id="3628" name="NV_DTM_FEATURE_SUPPORT_I" mapping="direct" encoding="dec">0 </NvItem>
+
+  <NvItem id="4118" name="NV_HSDPA_CAT_I" mapping="direct" encoding="hex">0xe </NvItem>
+
+  <NvItem id="4209" name="NV_EDTM_FEATURE_SUPPORT_I" mapping="direct" encoding="hex">0x0 </NvItem>
+  <NvItem id="4703" name="NV_CGPS_UMTS_PDE_SERVER_ADDR_URL_I" mapping="direct" encoding="hex">
+  0x77,0x77,0x77,0x2E,0x73,0x70,0x69,0x72,0x65,0x6E,0x74,0x2D,0x6C,0x63,0x73,0x2E,0x63,0x6F,0x6D </NvItem>
+  <NvItem id="4706" name="NV_CGPS_UMTS_PDE_SERVER_PORT_I" mapping="direct" encoding="hex"> 0x1c6b </NvItem>
+
+  <NvItem id="5895" name="NV_MGRF_SUPPORTED_I" mapping="direct" encoding="hex">0x0 </NvItem>
+
+  <NvItem id="6850" subscriptionid="0" name="NV_MTS_AMR_CODEC_PREFERENCE_CONFIG_I" mapping="direct" encoding="hex" index="0">0x05</NvItem>
+
+  <NvItem index="0" encoding="hex" mapping="direct" name="NV_ENHANCED_HPLMN_SRCH_TBL_I" subscriptionid="0" id="6844">
+  0x1,0x1,0x0a,0x13,0xf0,0x13,0xf1,0x13,0xf2,0x13,
+  0xf3,0x13,0xf4,0x13,0xf5,0x13,0xf6,0x03,0xf2,0x33,
+  0xf4,0x43,0xf8,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  </NvItem>
+
+  <NvEfsItem fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_csfb_skip_sib11_opt" name="WCDMA_RRC_CSFB_SKIP_SIB11_OPT"
+        mapping="direct" encoding="hex"
+        index="0">0x1
+  </NvEfsItem>
+
+<!--
+  <NvEfsItem fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_fast_return_to_lte_after_csfb_timer" name="WCDMA_RRC_W2L_CM_SUPPORT"
+        mapping="direct" encoding="dec"
+        index="0"> 2000
+  </NvEfsItem>
+-->
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="wcdma_rrc_wtol_cm_support" fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_wtol_cm_support">0</NvEfsItem>
+
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/wcdma/rrc/wcdma_rrc_wtol_cm_support" fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_wtol_cm_support">0</NvEfsItem>
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/nas/aggression_management" fullpathname="/nv/item_files/modem/nas/aggression_management">1</NvEfsItem>
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/uim/mmgsdi/refresh_retry" fullpathname="/nv/item_files/modem/uim/mmgsdi/refresh_retry">1,90000,4,1500</NvEfsItem>
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/data/3gpp/rpm_params" fullpathname="/nv/item_files/data/3gpp/rpm_params">0,60,30,60,30,0,0,0,0,0</NvEfsItem>
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/data/3gpp/rpm_suppported_sim" fullpathname="/nv/item_files/data/3gpp/rpm_suppported_sim">
+   0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0</NvEfsItem>
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/mmode/rpm_info" fullpathname="/nv/item_files/modem/mmode/rpm_info">0,20,0,0,0,10,0</NvEfsItem>
+
+  <NvEfsItem index="0" encoding="hex" mapping="direct" name="wcdma_rrc_wtol_ps_ho_support" fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_wtol_ps_ho_support">0x0</NvEfsItem>
+  <NvEfsItem index="0" encoding="hex" mapping="direct" name="/nv/item_files/modem/lte/rrc/sib/cmas/cmas" fullpathname="/nv/item_files/modem/lte/rrc/sib/cmas/cmas">0x1</NvEfsItem>
+  <NvEfsItem index="0" encoding="hex" mapping="direct" name="/nv/it/nv/item_files/wcdma/rrc/wcdma_rrc_feature" fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_feature">0x00</NvEfsItem>
+
+  <NvItem id="6790" subscriptionid="0" name="NV_GNSS_NMEA_EXTENDED_SENTENCE_TYPE_I" mapping="direct" encoding="dec" index="0">7</NvItem>
+
+</NvSource>

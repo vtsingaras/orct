@@ -1,0 +1,11 @@
+<NvSource>
+	<NvEfsItem index="0" encoding="hex" mapping="direct" name="/nv/item_files/modem/lte/lte_3gpp_release_ver" fullpathname="/nv/item_files/modem/lte/lte_3gpp_release_ver">0x23</NvEfsItem>
+	<NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/mmode/sms_only" fullpathname="/nv/item_files/modem/mmode/sms_only">0</NvEfsItem>
+	<NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/mmode/ue_usage_setting" fullpathname="/nv/item_files/modem/mmode/ue_usage_setting">0</NvEfsItem>
+	<NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/nas/csg_support_configuration" fullpathname="/nv/item_files/modem/nas/csg_support_configuration">2</NvEfsItem>
+
+<!--	<NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/sms/sms_retry_limit" fullpathname="/nv/item_files/modem/sms/sms_retry_limit">1</NvEfsItem>
+  <NvEfsItem index="0" encoding="hex" mapping="direct" name="/sd/rat_acq_order" fullpathname="/sd/rat_acq_order">0x03,0xe7,0x0,0x03,0x09,0x05,0x03</NvEfsItem>
+-->
+
+</NvSource>
