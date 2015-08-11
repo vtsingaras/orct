@@ -19,15 +19,11 @@
   [id content]
   (map (fn [{:keys [tag attrs content]}]
          (when-not (= tag :Member)
-           (throw (IllegalStateException. (format "NV item %s has wrong tag %s!" id tag))))
+           (throw (IllegalStateException. (format "NV item %s has wrong tag %s!"
+                                                  (key2str id) (key2str tag)))))
          (let [{:keys [name type sizeOf]} attrs]
            {:name name :type type :size (str2int sizeOf)}))
        content))
-
-(defn- get-item
-  [nv-def-struct type id]
-  (let [nv (type nv-def-struct)]
-    (when nv (nv id))))
 
 
 (defn parse-nv-definition-file
@@ -43,9 +39,9 @@
               errors (:errors result)
               result (cond
                        (= (:tag n) :NvItem)
-                       (let [id (-> n :attrs :id)
-                             errors (if (get-item result :nv-item id)
-                                      (conj errors (format "nv item %s multiple defined!" id))
+                       (let [id (keyword (-> n :attrs :id))
+                             errors (if (-> result :nv-item id)
+                                      (conj errors (format "nv item %s multiple defined!" (key2str id)))
                                       errors)
                              update (-> result
                                         (assoc-in [:errors] errors)
@@ -56,9 +52,9 @@
                          update)
 
                        (= (:tag n) :NvEfsItem)
-                       (let [name (-> n :attrs :fullpathname)
-                             errors (if (get-item result :efs-items name)
-                                      (conj errors (format "efs item %s multiple defined!" name))
+                       (let [name (keyword (-> n :attrs :fullpathname))
+                             errors (if (-> result :efs-items name)
+                                      (conj errors (format "efs item %s multiple defined!" (key2str name)))
                                       errors)
                              update (-> result
                                         (assoc-in [:errors] errors)
@@ -73,42 +69,26 @@
 
 (comment
 
-  (println
-   (xml/parse "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/Masterfile_SW_QCN_ATnT_VoLTE.xml"))
-
-  (println
-   (xml/parse "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/NvDefinition.xml"))
+  (println (xml/parse "/samples/NvDefinition.xml"))
 
 
-  (def x (xml/parse "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/NvDefinition.xml"))
-  (def x (xml/parse "/mnt/ssd1/ol/lte_bl5_5/peikertools/nvitems/LTE_NAD_SW_QCN/NvDefinition.xml"))
-
-
-
-
-
-
-  (println nv-sample)
-  (println nv-efs-sample)
-
-  (def nv-definition-schema (parse-nv-definition-file "/mnt/ssd1/ol/lte_bl5_5/peikertools/nvitems/LTE_NAD_SW_QCN/NvDefinition.xml"))
-
-  (def nv-definition-schema (parse-nv-definition-file "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/NvDefinition.xml"))
+  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
 
   (map #(println %) (:errors nv-definition-schema))
+  (map #(println %) (:nv-items nv-definition-schema))
+  (map #(println %) (:efs-items nv-definition-schema))
 
   (def nv (:nv-items nv-definition-schema))
-  (def nv-22826 (nv "22826"))
+  (def nv-22826 (nv :22826))
   (println nv-22826)
 
   (map
    #(println %)
    (:content nv-22826))
 
-
   (def efs (:efs-items nv-definition-schema))
-  (def qipcall_1xsmsandvoice (efs "/nv/item_files/ims/qipcall_1xsmsandvoice"))
-  (def qipcall_1xsmsandvoice (efs "/nv/item_files/ims/qp_ims_ut_config"))
+  (def qipcall_1xsmsandvoice (efs :/nv/item_files/ims/qipcall_1xsmsandvoice))
+  (def qipcall_1xsmsandvoice (efs :/nv/item_files/ims/qp_ims_ut_config))
 
   (map
    #(println %)

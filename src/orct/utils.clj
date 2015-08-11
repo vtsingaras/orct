@@ -25,6 +25,12 @@
     (String. (byte-array (reverse t)))))
 
 
+(defn key2str
+  "transforms keyword which are usually used as hash keys to
+  stringified name without colon: (key2str :a) -> 'a'."
+  [k] (subs (str k) 1))
+
+
 (defn bytes2little-endian-uint
   "interprets given byte sequence e.g. specified as Java array
    into corresponding little endian unsigned integer representation.

@@ -127,11 +127,8 @@
    #(println %)
    (decode-binary-nv-params ts tb))
 
-  (map
-   #(println %)
-   ts)
+  (map #(println %) ts)
   )
-
 
 
 (defn- read-next-numbered-item
@@ -139,14 +136,18 @@
    the item as Clojure hash map and remaining unprocessed bytes
    of the input sequence."
   [schema result byte-buffer errors]
+  (def result result)
+  (def byte-buffer byte-buffer)
+  (def schema schema)
+  (def errors errors)
   (let [[byte-buffer stream-size] (rest-uint16-pair byte-buffer)
         [byte-buffer index] (rest-uint16-pair byte-buffer)
         [byte-buffer item] (rest-uint16-pair byte-buffer)
-        item (str2int item)
+        item (keyword (str item))
         [byte-buffer padding] (rest-uint16-pair byte-buffer)
         payload-size (- stream-size 8)
         [byte-buffer payload] [(drop payload-size byte-buffer) (take payload-size byte-buffer)]
-        item-def ((:nv-items schema) (str item))
+        item-def (-> schema :nv-items item)
         item-name (:name item-def)
         item-schema (:content item-def)]
     (if (< payload-size (count payload))
@@ -156,7 +157,8 @@
           result (assoc-in result [item :name] item-name)
           result (assoc-in result [item :params] (decode-binary-nv-params item-schema payload))
           errors (if-not item-schema
-                   (conj errors (format "missing schema definition for legacy nv item %d" item))
+                   (conj errors (format "missing schema definition for legacy nv item %s"
+                                        (key2str item)))
                    errors)]
       [result byte-buffer errors])))
 
@@ -199,7 +201,7 @@
   types are processed: EFS_Dir, EFS_Data, NV_ITEM_ARRAY (legacy)
   Mobile_Property_Info File_Version"
   [schema result node]
-  (let [name (.getName node)
+  (let [name (keyword (.getName node))
         size (.getSize node)
         stream (DocumentInputStream. node)
         content (byte-array (.available stream))
@@ -208,37 +210,36 @@
     (doto stream (.read content) (.close))
     (cond
       (= parent-dir "EFS_Dir")
-      (let [path (bytes2str content)
-            type (.getName (.getParent (.getParent node)))]
+      (let [path (keyword (bytes2str content))
+            type (keyword (.getName (.getParent (.getParent node))))]
         (assoc-in result [type name :path] path))
 
       (= parent-dir "EFS_Data")
-      (let [type (.getName (.getParent (.getParent node)))
-            nv-type-store (or (result type) {})
-            nv (nv-type-store name)
-            path (:path nv)
-            path-schema ((:efs-items schema) path)
-            item-schema (:content path-schema)
+      (let [type (keyword (.getName (.getParent (.getParent node))))
+            path (-> result type name :path)
+            item-schema (-> schema :efs-items path :content)
             errors (if-not item-schema
-                     (conj errors (format "missing schema definition for nv item path %s" path))
+                     (conj errors (format "missing schema definition for nv item path %s"
+                                          (key2str path)))
                      errors)]
-        (when-not path (throw (IllegalStateException. (format "EFS_Dir missing for nv %s,%s" type name))))
+        (when-not path (throw (IllegalStateException. (format "EFS_Dir missing for nv %s,%s"
+                                                              type name))))
         (-> result
             (assoc-in [type name :data] content)
             (assoc-in [type name :params] (decode-binary-nv-params item-schema content))
             (assoc-in [:errors] errors)))
 
-      (= name "NV_ITEM_ARRAY")
+      (= name :NV_ITEM_ARRAY)
       (let [[num-items num-errors] (read-nv-numbered-items schema content)
             errors (keep identity (concat errors num-errors))]
         (-> result
             (assoc-in [name] num-items)
             (assoc-in [:errors] errors)))
 
-      (= name "Mobile_Property_Info")
+      (= name :Mobile_Property_Info)
       (assoc-in result [name] (read-mobile-property-info content))
 
-      (= name "File_Version")
+      (= name :File_Version)
       (assoc-in result [name] (read-file-version-info content))
 
       :else (assoc-in result [:unprocessed name] content))))
@@ -303,7 +304,7 @@
 (defn- print-legacy-items
   [items]
   (dorun (map (fn [[item {:keys [index data name params]}]]
-                (println (format "%sitem:%s, index:%s, name:%s" (tabs 3) item index name))
+                (println (format "%sitem%s, index:%s, name:%s" (tabs 3) item index name))
                 (if params
                   (dorun (map (fn [{:keys [name val]}]
                                 (print (format "%s%s -> " (tabs 6) name))
@@ -317,7 +318,7 @@
 (defn- print-efs-items
   [items]
   (dorun (map (fn [[item {:keys [path data params]}]]
-                (println (format "%spath:%s" (tabs 3) path))
+                (println (format "%spath%s" (tabs 3) path))
                 (if params
                   (dorun (map (fn [{:keys [name val]}]
                                 (print (format "%s%s -> " (tabs 6) name))
@@ -347,22 +348,17 @@
 
 (defn print-nv-item-set
   [nv]
-  (let [efs-backup-items (nv "NV_Items")
-        prov-items (nv "Provisioning_Item_Files")
-        backup-items (nv "NV_ITEM_ARRAY")
-        mobile-properties (nv "Mobile_Property_Info")
-        file-version (nv "File_Version")
-        errors (:errors nv)]
+  (let [errors (:errors nv)]
     (println ">>>>> File Info >>>>>")
-    (print-file-version-info file-version)
+    (print-file-version-info (nv :File_Version))
     (println ">>>>> Mobile Property Info >>>>>")
-    (print-mobile-property-info mobile-properties)
+    (print-mobile-property-info (nv :Mobile_Property_Info))
     (println ">>>>> Item File Backup >>>>>")
-    (print-legacy-items backup-items)
+    (print-legacy-items (nv :NV_ITEM_ARRAY))
     (println ">>>>> EFS Item Backup >>>>>")
-    (print-efs-items efs-backup-items)
+    (print-efs-items (nv :NV_Items))
     (println ">>>>> Provisioning Item Files >>>>>")
-    (print-efs-items prov-items)
+    (print-efs-items (nv :Provisioning_Item_Files))
     (when-not (empty? errors)
       (do
         (println "\n==================== ERRORS ====================")
@@ -380,40 +376,27 @@
 
 
 
-(comment
-  (def qcn-input-stream (FileInputStream. "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/SW_QCN_BC_01_EU_GSM_Dual_WCDMA_1+8_LTE_3+7+20.qcn"))
-
-  (def qcn-input-stream (FileInputStream. "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/SW_QCN_BC_02_NA_ATnT_GSM_Dual_WCDMA_2+5_LTE_2+4+5+12+17_VoLTE.qcn"))
-
-  (def qcn-input-stream (FileInputStream. "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/SW_QCN_BC_02_NA_ATnT_GSM_Dual_WCDMA_2+5_LTE_2+4+5+12+17_VoLTE.qcn"))
-
-  (def qcn-input-stream (FileInputStream. "/home/ol/Entwicklung/nv_items/SW_QCN_BC_02_NA_ATnT_GSM_Dual_WCDMA_2+5_LTE_2+4+5+12+17_VoLTE.qcn"))
-
-
+(comment "usage illustration"
+  (def qcn-input-stream (FileInputStream. "samples/sample.qcn"))
   (def fs (POIFSFileSystem. qcn-input-stream))
-
-  (def node (. fs getRoot))
-
-
   (def nv (read-poifs-tree nv-definition-schema (.getRoot fs)))
 
+
   (println nv)
-
   (println (keys nv))
-  (println (nv "NV_Items"))
-  (println (nv "Provisioning_Item_Files"))
-  (println (nv "NV_ITEM_ARRAY"))
-  (println (nv "Mobile_Property_Info"))
-  (println (nv "File_Version"))
-
+  (println (nv :NV_Items))
+  (println (nv :Provisioning_Item_Files))
+  (println (nv :NV_ITEM_ARRAY))
+  (println (nv :Mobile_Property_Info))
+  (println (nv :File_Version))
 
   (print-nv-item-set nv)
 
-  (count nv-definition-schema)
+  (count nv)
 
-  (print-qcn nv-definition-schema
-             "/Users/ol/Entwicklung/Peiker/nv-parsing/LTE_NAD_SW_QCN/SW_QCN_BC_02_NA_ATnT_GSM_Dual_WCDMA_2+5_LTE_2+4+5+12+17_VoLTE.qcn")
+  (println (-> nv :Provisioning_Item_Files))
+  (println (-> nv :Provisioning_Item_Files :00000019))
 
-  (print-qcn nv-definition-schema
-             "/home/ol/Entwicklung/nv_items/SW_QCN_BC_02_NA_ATnT_GSM_Dual_WCDMA_2+5_LTE_2+4+5+12+17_VoLTE.qcn")
+  (print-qcn nv-definition-schema "samples/sample.qcn")
+
   )
