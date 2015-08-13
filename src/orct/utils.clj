@@ -28,8 +28,18 @@
 (defn key2str
   "transforms keyword which are usually used as hash keys to
   stringified name without colon: (key2str :a) -> 'a'."
-  [k] (subs (str k) 1))
+  [k] (if k (subs (str k) 1) ""))
 
+
+(defn bytes2little-endian
+  "interprets given byte sequence e.g. specified as Java array
+   into corresponding little endian unsigned integer representation.
+   example: (bytes2little-endian-uint [0x03 0x01]) -> 259"
+  [bytes]
+  (let [byte-pos-pairs (partition 2 (interleave bytes (range (count bytes)) ))]
+    (reduce (fn [result [next-byte pos]]
+              (+ result (bit-shift-left (bit-and next-byte 0xff) (* 8 pos))))
+            0 byte-pos-pairs)))
 
 (defn bytes2little-endian-uint
   "interprets given byte sequence e.g. specified as Java array
@@ -38,11 +48,7 @@
   [bytes]
   {:pre [(<= (count bytes) 8)]
    :post [(>= % 0)]}
-  (let [byte-pos-pairs (partition 2 (interleave bytes (range (count bytes)) ))]
-    (reduce (fn [result [next-byte pos]]
-              (+ result (bit-shift-left (bit-and next-byte 0xff) (* 8 pos))))
-            0 byte-pos-pairs)))
-
+  (bytes2little-endian bytes))
 
 (defn bytes2little-endian-int
   "interprets given byte sequence e.g. specified as Java array
@@ -50,7 +56,7 @@
    example: (bytes2little-endian-uint [0x03 0x01]) -> 259"
   [bytes]
   (let [sign (bit-and 0x80 (last bytes))
-        ures (bytes2little-endian-uint bytes)]
+        ures (bytes2little-endian bytes)]
     (if (= 0 sign)
       ures
       (- ures (bit-shift-left 1 (* 8 (count bytes)))))))

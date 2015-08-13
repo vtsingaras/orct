@@ -395,7 +395,7 @@
   (count nv)
 
   (println (-> nv :Provisioning_Item_Files))
-  (println (-> nv :Provisioning_Item_Files :00000019))
+  (println (-> nv :Provisioning_Item_Files :00000019)) ;; qp_ims_dpl_config
 
   (print-qcn nv-definition-schema "samples/sample.qcn")
 

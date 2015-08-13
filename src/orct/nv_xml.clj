@@ -126,8 +126,6 @@
                                                   (-> n :attrs :useProvisioningStore))
                                         (assoc-in [:efs-items name :content]
                                                   content))]
-                         (when (= name :/nv/item_files/modem/mmode/supplement_service_domain_pref)
-                           (def my-node n))
                          update)
 
                        :else result)]
@@ -146,8 +144,9 @@
   (println x)
   (println (:errors x))
 
-  (def my-node nil)
-  my-node
+  (separate-efs-item-stores x)
+
+
 
   (map #(println % "\n=========================\n") (:nv-items x))
   (map #(println % "\n=========================\n") (:efs-items x))
@@ -156,10 +155,13 @@
   (map #(println %) ((:nv-items x) :1031))
   (map #(println %) ((:nv-items x) :3532))
   (map #(println %) ((:nv-items x) :6873))
+  (println (keys x))
   (println (keys (:nv-items x)))
 
   (println (keys (:efs-items x)))
   (println ((:efs-items x) :/nv/item_files/ims/qp_ims_sms_config))
+  (println ((:efs-items x) :/nv/item_files/ims/qp_ims_dpl_config))
+
 
   (def a (read-string "[0x01, 0x0f, 0x0A, 0xFF, 127]"))
   (def b (read-string "[0x01, (+ 2 3), 0x0A, 0xFF, 127]"))
