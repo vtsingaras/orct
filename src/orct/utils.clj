@@ -8,7 +8,9 @@
 ;;
 ;; utils.cljs - utility functions, mostly for data conversion
 
-(ns orct.utils)
+(ns orct.utils
+  (:require [clojure.edn :as edn]
+            [clojure.string :as str]))
 
 
 (defn str2int
@@ -62,7 +64,7 @@
       (- ures (bit-shift-left 1 (* 8 (count bytes)))))))
 
 
-(defn long2bytearray
+(defn long2byteseq
   "converts an integer value (max 64 bit) into byte array.
 
   Since the function  uses 64 arithmetic internally  it cannot easily
@@ -74,7 +76,7 @@
   That  the  algebraic  sign  of  the  results  range  is  determined
   implicitly."
 
-  [val bits]
+  [bits val]
   {:pre [(let [mask-signed (bit-shift-left (bit-not 0) (dec bits))
                mask-unsigned (bit-shift-left (bit-not 0) bits)]
            (and (and (>= bits 8) (<= bits 64) (== 0 (mod bits 8)))
@@ -84,7 +86,7 @@
                       (and (> val 0) (> mask-unsigned 0) (not= 0 (bit-and mask-unsigned val)))
                       (and (< val 0) (< mask-signed 0) (not= mask-signed (bit-and mask-signed val)))))))]}
   (loop [bits (- bits 8)
-         result []]
+         result '()]
     (if (< bits 0)
       result
       (let [mask (bit-shift-left 0xff bits)]
@@ -93,31 +95,33 @@
 
 (comment
 
-  (long2bytearray 0xa0b1 32)
-  (long2bytearray 0xa0b1 16)
-  (long2bytearray 0 16)
-  (long2bytearray 32767 16)
-  (long2bytearray 32768 16)
-  (long2bytearray 65535 16)
-  (long2bytearray 65536 16)
-  (long2bytearray -32768 16)
-  (long2bytearray -32769 16)
-  (long2bytearray -32769 32)
+  (long2byteseq 32 0x01020304)
 
-  (long2bytearray (bit-shift-left 1 30) 64)
-  (long2bytearray (bit-shift-left 1 63) 64)
-  (long2bytearray 9223372036854775807 64)
-  (long2bytearray 9223372036854775806 64)
-  (long2bytearray -9223372036854775807 64)
-  (long2bytearray 1 56)
-  (long2bytearray 1 64)
+  (long2byteseq 32 0xa0b1)
+  (long2byteseq 16 0xa0b1)
+  (long2byteseq 16 0)
+  (long2byteseq 16 32767)
+  (long2byteseq 16 32768)
+  (long2byteseq 16 65535)
+  (long2byteseq 16 65536)
+  (long2byteseq 16 -32768)
+  (long2byteseq 16 -32769)
+  (long2byteseq 32 -32769)
+
+  (long2byteseq 64 (bit-shift-left 1 30))
+  (long2byteseq 64 (bit-shift-left 1 63))
+  (long2byteseq 64 9223372036854775807)
+  (long2byteseq 64 9223372036854775806)
+  (long2byteseq 64 -9223372036854775807)
+  (long2byteseq 56 1)
+  (long2byteseq 64 1)
 
   (try
-    (long2bytearray -32768 16)
+    (long2byteseq 16 -32768)
     (catch AssertionError e (str "caught exception: " (.getMessage e))))
 
   (try
-    (long2bytearray -32769 16)
+    (long2byteseq 16 -32769)
     (catch AssertionError e (str "caught exception: " (.getMessage e))))
 
 

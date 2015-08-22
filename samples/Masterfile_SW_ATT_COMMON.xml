@@ -31,29 +31,29 @@
   <NvItem id="6850" subscriptionid="0" name="NV_MTS_AMR_CODEC_PREFERENCE_CONFIG_I" mapping="direct" encoding="hex" index="0">0x05</NvItem>
 
   <NvItem index="0" encoding="hex" mapping="direct" name="NV_ENHANCED_HPLMN_SRCH_TBL_I" subscriptionid="0" id="6844">
-  0x1,0x1,0x0a,0x13,0xf0,0x13,0xf1,0x13,0xf2,0x13,
-  0xf3,0x13,0xf4,0x13,0xf5,0x13,0xf6,0x03,0xf2,0x33,
-  0xf4,0x43,0xf8,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,
+    0x1,0x1,0x0a,0x13,0xf0,0x13,0xf1,0x13,0xf2,0x13,
+    0xf3,0x13,0xf4,0x13,0xf5,0x13,0xf6,0x03,0xf2,0x33,
+    0xf4,0x43,0xf8,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
   </NvItem>
 
   <NvEfsItem fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_csfb_skip_sib11_opt" name="WCDMA_RRC_CSFB_SKIP_SIB11_OPT"
-        mapping="direct" encoding="hex"
-        index="0">0x1
+             mapping="direct" encoding="hex"
+             index="0">0x1
   </NvEfsItem>
 
-<!--
-  <NvEfsItem fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_fast_return_to_lte_after_csfb_timer" name="WCDMA_RRC_W2L_CM_SUPPORT"
-        mapping="direct" encoding="dec"
-        index="0"> 2000
-  </NvEfsItem>
--->
+  <!--
+      <NvEfsItem fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_fast_return_to_lte_after_csfb_timer" name="WCDMA_RRC_W2L_CM_SUPPORT"
+      mapping="direct" encoding="dec"
+      index="0"> 2000
+      </NvEfsItem>
+  -->
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="wcdma_rrc_wtol_cm_support" fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_wtol_cm_support">0</NvEfsItem>
 
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/wcdma/rrc/wcdma_rrc_wtol_cm_support" fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_wtol_cm_support">0</NvEfsItem>
@@ -61,12 +61,12 @@
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/uim/mmgsdi/refresh_retry" fullpathname="/nv/item_files/modem/uim/mmgsdi/refresh_retry">1,90000,4,1500</NvEfsItem>
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/data/3gpp/rpm_params" fullpathname="/nv/item_files/data/3gpp/rpm_params">0,60,30,60,30,0,0,0,0,0</NvEfsItem>
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/data/3gpp/rpm_suppported_sim" fullpathname="/nv/item_files/data/3gpp/rpm_suppported_sim">
-   0,0,0,0,0,0,0,0,0,0,
-   0,0,0,0,0,0,0,0,0,0,
-   0,0,0,0,0,0,0,0,0,0,
-   0,0,0,0,0,0,0,0,0,0,
-   0,0,0,0,0,0,0,0,0,0,
-   0,0,0,0,0,0,0,0,0,0</NvEfsItem>
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0</NvEfsItem>
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/mmode/rpm_info" fullpathname="/nv/item_files/modem/mmode/rpm_info">0,20,0,0,0,10,0</NvEfsItem>
 
   <NvEfsItem index="0" encoding="hex" mapping="direct" name="wcdma_rrc_wtol_ps_ho_support" fullpathname="/nv/item_files/wcdma/rrc/wcdma_rrc_wtol_ps_ho_support">0x0</NvEfsItem>

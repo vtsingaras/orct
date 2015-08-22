@@ -162,17 +162,6 @@
   (println ((:efs-items x) :/nv/item_files/ims/qp_ims_sms_config))
   (println ((:efs-items x) :/nv/item_files/ims/qp_ims_dpl_config))
 
-
-  (def a (read-string "[0x01, 0x0f, 0x0A, 0xFF, 127]"))
-  (def b (read-string "[0x01, (+ 2 3), 0x0A, 0xFF, 127]"))
-  (def c (read-string "[\"hallo\", (+ 2 3), 0x0A, 0xFF, 127]"))
-  (def d (read-string "[\"hallo\", 3234.234, 0x0A, 0xFF, 127]"))
-  (map number? a)
-  (map number? b)
-  (every? #(or (number? %) (string? %)) d)
-
-  (read-string "(+ 1 2)")
-
   (println nv-sample)
   (println nv-efs-sample)
 
@@ -197,61 +186,4 @@
    #(println %)
    (:content qipcall_1xsmsandvoice))
 
-
-
-  (def band-pref-schema
-    (array-map
-     :name :string
-     :band1 :int32
-     :band2 :int16
-     ))
-
-  (def band-pref1
-    (hash-map
-     :name "lte-band1"
-     :band1 132183
-     :band2 10211
-     ))
-
-  (def band-pref1-wrong
-    (hash-map
-     :name "lte-band1"
-     :band1 132183
-     ))
-
-  (for [[k v] band-pref-schema] (println (band-pref1 k)))
-
-  )
-
-
-(defn marshal-item-value
-  [f v]
-  (case f
-    :string v
-    :int8 (long2bytearray v 8)
-    :uint8 (long2bytearray v 8)
-    :int16 (long2bytearray v 16)
-    :uint16 (long2bytearray v 16)
-    :int32 (long2bytearray v 32)
-    :uint32 (long2bytearray v 32)
-    ))
-
-(defn marshal-items [schema values]
-  (for [[k f] schema]
-    (let [v (values k)]
-      (when (not v)
-        (throw (IllegalStateException. (str "no definition for key " k " error!"))))
-      ;(println k f v)
-      (marshal-item-value f v)
-      )))
-
-
-(comment
-  (try
-    (doall (marshal-items band-pref-schema band-pref1))
-    (catch Exception e (str "caught exception: " (.getMessage e))))
-
-  (try
-    (doall (marshal-items band-pref-schema band-pref1-wrong))
-    (catch Exception e (str "caught exception: " (.getMessage e))))
   )

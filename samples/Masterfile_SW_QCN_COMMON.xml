@@ -1,31 +1,31 @@
 <NvSource>
-	<NvItem id="10" name="NV_PREF_MODE_I" mapping="direct" encoding="dec">0,4 </NvItem>
+  <NvItem id="10" name="NV_PREF_MODE_I" mapping="direct" encoding="dec">0,4 </NvItem>
 
-	<!--	<Member type="uint8" sizeOf="1" name=""/> -->
-	<!--	<Member type="uint16" sizeOf="1" name=""/> -->
+  <!--	<Member type="uint8" sizeOf="1" name=""/> -->
+  <!--	<Member type="uint16" sizeOf="1" name=""/> -->
 
-	<NvItem id="74" name="NV_AUTO_ANSWER_I" mapping="direct" encoding="dec">0,0 </NvItem>
-	<!--	<Member type="uint8" sizeOf="2" name=""/> -->
+  <NvItem id="74" name="NV_AUTO_ANSWER_I" mapping="direct" encoding="dec">0,0 </NvItem>
+  <!--	<Member type="uint8" sizeOf="2" name=""/> -->
 
-	<NvItem id="453" name="NV_FTM_MODE" mapping="direct" encoding="dec">0 </NvItem>
+  <NvItem id="453" name="NV_FTM_MODE" mapping="direct" encoding="dec">0 </NvItem>
 
-	<NvItem id="553" name="NV_GSM_A5_ALGORITHMS_SUPPORTED_I" mapping="direct" encoding="dec">5 </NvItem>
+  <NvItem id="553" name="NV_GSM_A5_ALGORITHMS_SUPPORTED_I" mapping="direct" encoding="dec">5 </NvItem>
 
-<!--	<NvItem id="562" name="NV_HYBRID_PREF_I" mapping="direct" encoding="dec">1 </NvItem> -->
+  <!--	<NvItem id="562" name="NV_HYBRID_PREF_I" mapping="direct" encoding="dec">1 </NvItem> -->
 
-	<NvItem id="848" name="NV_ACQ_ORDER_PREF_I" mapping="direct" encoding="dec">0,0 </NvItem>
-	<NvItem id="849" name="NV_NET_SEL_MODE_PREF_I" mapping="direct" encoding="dec">0,0 </NvItem>
-	<NvItem id="850" name="NV_SERVICE_DOMAIN_PREF_I" mapping="direct" encoding="dec">0,2 </NvItem>
-<!--	<NvItem id="855" name="NV_RTRE_CONFIG_I" mapping="direct" encoding="dec">0 </NvItem> -->
+  <NvItem id="848" name="NV_ACQ_ORDER_PREF_I" mapping="direct" encoding="dec">0,0 </NvItem>
+  <NvItem id="849" name="NV_NET_SEL_MODE_PREF_I" mapping="direct" encoding="dec">0,0 </NvItem>
+  <NvItem id="850" name="NV_SERVICE_DOMAIN_PREF_I" mapping="direct" encoding="dec">0,2 </NvItem>
+  <!--	<NvItem id="855" name="NV_RTRE_CONFIG_I" mapping="direct" encoding="dec">0 </NvItem> -->
 
-	<NvItem id="880" name="NV_RRC_INTEGRITY_ENABLED_I" mapping="direct" encoding="dec">1 </NvItem>
-	<!--	<Member type="uint8" sizeOf="1" name=""/> -->
+  <NvItem id="880" name="NV_RRC_INTEGRITY_ENABLED_I" mapping="direct" encoding="dec">1 </NvItem>
+  <!--	<Member type="uint8" sizeOf="1" name=""/> -->
 
-	<NvItem id="881" name="NV_RRC_CIPHERING_ENABLED_I" mapping="direct" encoding="dec">1 </NvItem>
-	<!--	<Member type="uint8" sizeOf="1" name=""/> -->
+  <NvItem id="881" name="NV_RRC_CIPHERING_ENABLED_I" mapping="direct" encoding="dec">1 </NvItem>
+  <!--	<Member type="uint8" sizeOf="1" name=""/> -->
 
-	<NvItem id="882" name="NV_RRC_FAKE_SECURITY_ENABLED_I" mapping="direct" encoding="dec">0 </NvItem>
-	<!--	<Member type="uint8" sizeOf="1" name=""/> -->
+  <NvItem id="882" name="NV_RRC_FAKE_SECURITY_ENABLED_I" mapping="direct" encoding="dec">0 </NvItem>
+  <!--	<Member type="uint8" sizeOf="1" name=""/> -->
 
   <NvItem id="896"  name="NV_UIM_FIRST_INT_CLASS_I" mapping="direct" encoding="dec">1 </NvItem>
 
@@ -59,8 +59,8 @@
 
   <NvItem id="4158" name="NV_MULTISLOT_8PSK_POWER_PROFILE_I" mapping="direct" encoding="hex">0x01 </NvItem>
 
-	<NvItem id="3851" name="NV_WCDMA_RX_DIVERSITY_CTRL_I" mapping="direct" encoding="dec">3 </NvItem>
-	<!--	<Member type="uint8" sizeOf="1" name=""/> -->
+  <NvItem id="3851" name="NV_WCDMA_RX_DIVERSITY_CTRL_I" mapping="direct" encoding="dec">3 </NvItem>
+  <!--	<Member type="uint8" sizeOf="1" name=""/> -->
 
   <NvItem id="4210" name="NV_WCDMA_HSUPA_CATEGORY_I" mapping="direct" encoding="hex">0x06 </NvItem>
   <NvItem id="4265" name="NV_VOIP_REGISTRATION_MODE_I" mapping="direct" encoding="hex">0x0 </NvItem>
@@ -82,7 +82,7 @@
   <NvItem id="6850" name="NV_UMTS_AMR_CODEC_PREFERENCE_CONFIG_I" mapping="direct" encoding="hex">0x0f </NvItem>
 
   <!--QMI Activation -->
-	<NvItem index="0" encoding="dec" mapping="direct" name="qmi_port_list" subscriptionid="0" id="6873">9,1280,1,1,1280,1536,1,1,1536,1537,1,1,1537,1538,1,1,1538,1539,1,1,1539,1540,1,1,1540,1541,1,1,1541,1542,1,1,1542,1543,1,1,1543</NvItem>
+  <NvItem index="0" encoding="dec" mapping="direct" name="qmi_port_list" subscriptionid="0" id="6873">9,1280,1,1,1280,1536,1,1,1536,1537,1,1,1537,1538,1,1,1538,1539,1,1,1539,1540,1,1,1540,1541,1,1,1541,1542,1,1,1542,1543,1,1,1543</NvItem>
 
 
 
@@ -97,8 +97,8 @@
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/qmi/cat/qmi_cat_mode" fullpathname="/nv/item_files/modem/qmi/cat/qmi_cat_mode">0</NvEfsItem>
 
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/wcdma/rrc/wcdma_ppac_support" fullpathname="/nv/item_files/wcdma/rrc/wcdma_ppac_support">1</NvEfsItem>
- <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/uim/uimdrv/feature_support_hotswap" fullpathname="/nv/item_files/modem/uim/uimdrv/feature_support_hotswap">0,1,0,0,0,0,0,0,0,0,0</NvEfsItem>
- <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/uim/uimdrv/hotswap_card_inserted_level" fullpathname="/nv/item_files/modem/uim/uimdrv/hotswap_card_inserted_level">1,0</NvEfsItem>
-<!--  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/uim/mmgsdi/refresh_vote_ok" fullpathname="/nv/item_files/modem/uim/mmgsdi/refresh_vote_ok">0</NvEfsItem> -->
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/uim/uimdrv/feature_support_hotswap" fullpathname="/nv/item_files/modem/uim/uimdrv/feature_support_hotswap">0,1,0,0,0,0,0,0,0,0,0</NvEfsItem>
+  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/uim/uimdrv/hotswap_card_inserted_level" fullpathname="/nv/item_files/modem/uim/uimdrv/hotswap_card_inserted_level">1,0</NvEfsItem>
+  <!--  <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/uim/mmgsdi/refresh_vote_ok" fullpathname="/nv/item_files/modem/uim/mmgsdi/refresh_vote_ok">0</NvEfsItem> -->
 
 </NvSource>

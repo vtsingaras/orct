@@ -12,6 +12,7 @@
   (:use [orct.macros]
         [orct.utils]
         [orct.nv-xml] ;; only temporary
+        [orct.qcn-writer] ;; only temporary
         )
   (:import java.nio.ByteBuffer java.io.FileInputStream
            [org.apache.poi.poifs.filesystem POIFSFileSystem DirectoryNode DocumentNode
@@ -378,6 +379,7 @@
 
 (comment "usage illustration"
   (def qcn-input-stream (FileInputStream. "samples/sample.qcn"))
+  (def qcn-input-stream (FileInputStream. "samples/nv-item-setup-wlan-board-complete-2015-08-14.qcn"))
   (def fs (POIFSFileSystem. qcn-input-stream))
   (def nv (read-poifs-tree nv-definition-schema (.getRoot fs)))
 
@@ -390,6 +392,7 @@
   (println (nv :Mobile_Property_Info))
   (println (nv :File_Version))
 
+  (print-efs-items t-efs)
   (print-nv-item-set nv)
 
   (count nv)
@@ -397,6 +400,13 @@
   (println (-> nv :Provisioning_Item_Files))
   (println (-> nv :Provisioning_Item_Files :00000019)) ;; qp_ims_dpl_config
 
+  (println (-> nv :NV_ITEM_ARRAY :1014)) ;; NV_SMS_GW_CB_SERVICE_TABLE_SIZE_I
   (print-qcn nv-definition-schema "samples/sample.qcn")
+
+
+  (println (keys (nv :NV_Items)))
+  (println (keys (nv :Provisioning_Item_Files)))
+  (println (keys (nv :NV_ITEM_ARRAY)))
+
 
   )

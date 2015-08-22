@@ -1,9 +1,9 @@
 <NvSource xmlns:xi="http://www.w3.org/2001/XInclude">
   <!-- Includes -->
-	<xi:include href="Masterfile_SW_QCN_COMMON.xml#xpointer(/NvSource/*)"/>
-	<xi:include href="Masterfile_SW_LTE_COMMON.xml#xpointer(/NvSource/*)"/>
-	<xi:include href="Masterfile_SW_ATT_COMMON.xml#xpointer(/NvSource/*)"/>
-        <xi:include href="Masterfile_SW_VoLTE_COMMON.xml#xpointer(/NvSource/*)"/>
+  <xi:include href="Masterfile_SW_QCN_COMMON.xml#xpointer(/NvSource/*)"/>
+  <xi:include href="Masterfile_SW_LTE_COMMON.xml#xpointer(/NvSource/*)"/>
+  <xi:include href="Masterfile_SW_ATT_COMMON.xml#xpointer(/NvSource/*)"/>
+  <xi:include href="Masterfile_SW_VoLTE_COMMON.xml#xpointer(/NvSource/*)"/>
 
   <NvItem id="441" name="NV_BAND_PREF_I" mapping="direct" encoding="hex">0x0,0x0 </NvItem>
 
@@ -16,9 +16,9 @@
   <NvItem id="2954" name="NV_BAND_PREF_32_63_I" mapping="direct" encoding="hex">0x0,0x0 </NvItem>
 
   <NvEfsItem fullpathname="/nv/item_files/peiker/sw_qcn_ident.txt" name="/nv/item_files/peiker/sw_qcn_ident.txt"
-        mapping="direct" encoding="hex"
-        index="0">32,2c,31,30,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20
-   </NvEfsItem>
+             mapping="direct" encoding="hex"
+             index="0">32,2c,31,30,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20
+  </NvEfsItem>
   <NvEfsItem fullpathname="/nv/item_files/modem/mmode/lte_bandpref" name="/nv/item_files/modem/mmode/lte_bandpref" mapping="direct" encoding="hex">0x01081a</NvEfsItem>
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/data/3gpp/ps/ser_req_throttle_behavior" fullpathname="/nv/item_files/modem/data/3gpp/ps/ser_req_throttle_behavior">1</NvEfsItem>
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/mmode/lte_disable_duration" fullpathname="/nv/item_files/modem/mmode/lte_disable_duration">0</NvEfsItem>
