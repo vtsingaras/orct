@@ -115,4 +115,23 @@
 
   (write-qcn-struct-to-poi-fs qcn "test.qcn" )
 
+  (map (fn [[item {:keys [path data errors]}]]
+         (let [item (key2str item)
+               payload-size (alength data)]
+           (println item path payload-size errors (vec data))))
+       (:NV_Items qcn))
+
+  (map (fn [[item {:keys [path data errors]}]]
+         (let [item (key2str item)
+               payload-size (alength data)]
+           (println item path payload-size errors (vec data))))
+       (:Provisioning_Item_Files qcn))
+
+  (map (fn [[item {:keys [name data errors]}]]
+         (let [item (key2str item)
+               payload-size (if data (alength data) 0)]
+           (when data
+             (println item name payload-size errors (vec data)))))
+       (:NV_ITEM_ARRAY qcn))
+
   )

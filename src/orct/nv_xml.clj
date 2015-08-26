@@ -399,6 +399,7 @@
 
   )
 
+
 (defn- transform-efs-item-params-to-qcn-struct
   "transform nv  parameter content  data given  in format  parsed from
   xml  definition  into same  format  as  used  by qcn  parser.  Takes
@@ -417,7 +418,11 @@
             (throw (IllegalStateException.
                     (format "efs item %s lacks schema definition and has more than one element!"
                             path)))
-            {:name "" :val xml-content :type "uint8" :member-idx 0})
+            (let [type "uint8"
+                  encoding "dec"
+                  [data errors] (valstr2byte-array (first xml-content) type 1 encoding)]
+              [{:name "undefined" :val xml-content :type "uint8" :member-idx 0
+                :data data :errors (conj errors "missing schema!")}]))
 
           (map? (first xml-content)) ;; nv provided as associate array (hash map) for components
           (map
@@ -458,6 +463,10 @@
   ;; structured components
   (def r (test-transform-efs-item-params :/nv/item_files/ims/qp_ims_dpl_config))
   (def r (test-transform-efs-item-params :/nv/item_files/ims/qp_ims_sms_config))
+
+  ;; no schema
+  (def r (test-transform-efs-item-params :/nv/item_files/modem/utils/a2/bam_dynamic_config))
+  (vec (:data (first r)))
 
   ;; unstructured components
   (def r (test-transform-efs-item-params :/nv/item_files/ims/qipcall_octet_aligned_mode_amr_wb))
@@ -599,14 +608,28 @@
   [schema-seq  nv-item]
   (let [params (transform-item-params-to-qcn-struct schema-seq  nv-item)
         [data errors] (aggregate-param-member-data params)]
-    [{:name name :data data :params params} errors]))
+    [(-> nv-item
+          (assoc-in [:data] data)
+          (assoc-in [:params] params)
+          (assoc-in [:errors] errors))
+     errors]))
 
 
 (comment
 
+  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
+  (def nv-xml-data (parse-nv-data-file "samples/Masterfile.xml"))
   (def nv-items (:nv-items nv-xml-data))
 
   (map #(println %) nv-items)
+
+  ; not schema given
+  (def uim-first-int-class-I (:896 nv-items))
+  (def uim-first-int-class-I-schema (:896 (:nv-items nv-definition-schema)))
+
+  (def t (transform-nv-item-params-to-qcn-struct
+          (:content uim-first-int-class-I-schema)
+          uim-first-int-class-I))
 
   (def cv-service-table-I (:1014 nv-items))
   (def cv-service-table-I-schema (:1014 (:nv-items nv-definition-schema)))
@@ -641,6 +664,7 @@
   poi structure."
   [nv-definition-schema  nv-items]
   (let [nv-item-schema (:nv-items nv-definition-schema)
+        schema-missing-msg "no schema given!"
         [result errors]
 
         (reduce
@@ -652,8 +676,8 @@
                                         (:content idx-schema)
                                         params)
 
-                                       [params
-                                        ["no schema given!"]])
+                                       [(assoc-in params [:errors] schema-missing-msg)
+                                        [schema-missing-msg]])
                  par-errors-str (pr-str (map #(str % ",") par-errors))]
 
              [(assoc result idx params)
