@@ -270,12 +270,38 @@
     (readfn {} node)))
 
 
-
-
 (defn- tabs
   "generates a string of specified numer of blanks used as tabulating characters"
   [level]
   (apply str (repeat (* 2 level) " ")))
+
+
+(defn read-poifs-tree-debug
+  "reads poi filesystem with specified root node and returns result as
+   Clojure nested data structure.
+
+  invocation example:
+  (read-poifs-tree nv-definiton schema
+      (.getRoot (POIFSFileSystem. (FileInputStream. 'input-file.qcn'))))"
+  [schema node]
+  (letfn [(readfn [result node level]
+            (cond
+              (= (class node) DirectoryNode)
+              (let [s (iterator-seq (.getEntries node))
+                    c (.getEntryCount node)
+                    path (.getPath node)
+                    name (.getName node)]
+                (println (format "%sDirectoryNode -> path:%s, name:%s" (tabs level) path name))
+                (println (tabs level) "======================")
+                (reduce (fn [res node] (readfn res node (inc level))) result s))
+
+              (= (class node) DocumentNode)
+              (do
+                (println (format "%sDocumentNode -> name:%s" (tabs level) (.getName node)))
+                (read-document-node schema result node))
+              :else
+              (throw (IllegalStateException. (str "class " (class node) " undefined error!")))))]
+    (readfn {} node 0)))
 
 
 (defn- print-val-seq
@@ -380,9 +406,11 @@
 (comment "usage illustration"
   (def qcn-input-stream (FileInputStream. "samples/sample.qcn"))
   (def qcn-input-stream (FileInputStream. "samples/nv-item-setup-wlan-board-complete-2015-08-14.qcn"))
+  (def qcn-input-stream (FileInputStream. "otto.qcn"))
   (def fs (POIFSFileSystem. qcn-input-stream))
   (def nv (read-poifs-tree nv-definition-schema (.getRoot fs)))
 
+  (read-poifs-tree-debug nv-definition-schema (.getRoot fs))
 
   (println nv)
   (println (keys nv))
