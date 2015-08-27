@@ -284,8 +284,7 @@
         add-hexprefix (fn [s] (if (re-find #"^0[xX]" s) s (str "0x" s)))
         hexprefix (fn [s] (if (= encoding "hex") (add-hexprefix s) s))
         encoding (str/lower-case encoding)
-        type (str/lower-case type)
-        ]
+        type (str/lower-case type)]
     (let [result
           (reduce
            (fn [processed-items next-item]
@@ -358,8 +357,8 @@
 
   (vec (first r))
   (String. (first r))
-
   )
+
 
 (defn- transform-item-params-to-qcn-struct
   "transform item parameter component data given in format parsed from
@@ -761,7 +760,5 @@
 
 
 (comment
-
   (def qcn (parse-nv-data "samples/NvDefinition.xml" "samples/Masterfile.xml"))
-
   )

@@ -14,6 +14,7 @@
         [orct.nv-xml] ;; only temporary
         [orct.qcn-writer] ;; only temporary
         )
+  (:require [clojure.edn :as edn])
   (:import java.nio.ByteBuffer java.io.FileInputStream
            [org.apache.poi.poifs.filesystem POIFSFileSystem DirectoryNode DocumentNode
             DocumentInputStream DocumentOutputStream]))
@@ -137,20 +138,19 @@
    the item as Clojure hash map and remaining unprocessed bytes
    of the input sequence."
   [schema result byte-buffer errors]
-  (def result result)
-  (def byte-buffer byte-buffer)
-  (def schema schema)
-  (def errors errors)
-  (let [[byte-buffer stream-size] (rest-uint16-pair byte-buffer)
+  (let [orig-byte-buffer byte-buffer
+        [byte-buffer stream-size] (rest-uint16-pair byte-buffer)
         [byte-buffer index] (rest-uint16-pair byte-buffer)
         [byte-buffer item] (rest-uint16-pair byte-buffer)
         item (keyword (str item))
         [byte-buffer padding] (rest-uint16-pair byte-buffer)
         payload-size (- stream-size 8)
-        [byte-buffer payload] [(drop payload-size byte-buffer) (take payload-size byte-buffer)]
+        [payload byte-buffer] (split-at payload-size byte-buffer)
         item-def (-> schema :nv-items item)
         item-name (:name item-def)
         item-schema (:content item-def)]
+    ;(println "======================= " item item-name index " =======================")
+    ;(println (take 40 (vec orig-byte-buffer)))
     (if (< payload-size (count payload))
       (throw (IllegalStateException. (format "NV item %d has wrong length error!" item))))
     (let [result (assoc-in result [item :data] payload)
@@ -162,6 +162,7 @@
                                         (key2str item)))
                    errors)]
       [result byte-buffer errors])))
+
 
 
 (defn- read-nv-numbered-items
@@ -216,23 +217,13 @@
         (assoc-in result [type name :path] path))
 
       (= parent-dir "EFS_Data")
-      (let [type (keyword (.getName (.getParent (.getParent node))))
-            path (-> result type name :path)
-            item-schema (-> schema :efs-items path :content)
-            errors (if-not item-schema
-                     (conj errors (format "missing schema definition for nv item path %s"
-                                          (key2str path)))
-                     errors)]
-        (when-not path (throw (IllegalStateException. (format "EFS_Dir missing for nv %s,%s"
-                                                              type name))))
-        (-> result
-            (assoc-in [type name :data] content)
-            (assoc-in [type name :params] (decode-binary-nv-params item-schema content))
-            (assoc-in [:errors] errors)))
+      (let [type (keyword (.getName (.getParent (.getParent node))))]
+        (-> result (assoc-in [type name :data] content)))
 
       (= name :NV_ITEM_ARRAY)
       (let [[num-items num-errors] (read-nv-numbered-items schema content)
             errors (keep identity (concat errors num-errors))]
+        (def c content)
         (-> result
             (assoc-in [name] num-items)
             (assoc-in [:errors] errors)))
@@ -246,9 +237,9 @@
       :else (assoc-in result [:unprocessed name] content))))
 
 
-(defn read-poifs-tree
-  "reads poi filesystem with specified root node and returns result as
-   Clojure nested data structure.
+(defn- read-poifs-tree-first-stage
+  "first stage  parsing of  poi filesystem  with specified  root node,
+  returns result as Clojure nested data structure.
 
   invocation example:
   (read-poifs-tree nv-definiton schema
@@ -268,6 +259,47 @@
               :else
               (throw (IllegalStateException. (str "class " (class node) " undefined error!")))))]
     (readfn {} node)))
+
+
+(defn- parse-nv-efs-data
+  "parse efs-data in a second step"
+  [schema efs-data]
+  (reduce
+   (fn [[result errors] elem]
+     (let [key (key elem)
+           values (val elem)
+           path (:path values)
+           data (:data values)
+           item-schema (-> schema :efs-items path :content)
+           [params error] (if item-schema
+                             [(decode-binary-nv-params item-schema data) []]
+                             [{} [(format "missing schema definition for nv item path %s"
+                                           (key2str path))]])
+           update (-> values
+                      (assoc :params params)
+                      (assoc :errors error))]
+       [(assoc result key update) (concat errors error)]))
+   [{#_result} [#_errors]]
+   efs-data))
+
+
+(defn read-poifs-tree
+  "reads poi filesystem with specified root node and returns result as
+   Clojure nested data structure.
+
+  invocation example:
+  (read-poifs-tree nv-definiton schema
+      (.getRoot (POIFSFileSystem. (FileInputStream. 'input-file.qcn'))))"
+  [schema node]
+
+  (let [nv (read-poifs-tree-first-stage schema node)
+        errors (:errors nv)
+        [nv-items errors1] (parse-nv-efs-data schema (nv :NV_Items))
+        [prov-items errors2] (parse-nv-efs-data schema (nv :Provisioning_Item_Files))]
+    (-> nv
+        (assoc :NV_Items nv-items)
+        (assoc :Provisioning_Item_Files prov-items)
+        (assoc :errors (concat errors errors1 errors2)))))
 
 
 (defn- tabs
@@ -291,17 +323,20 @@
                     c (.getEntryCount node)
                     path (.getPath node)
                     name (.getName node)]
-                (println (format "%sDirectoryNode -> path:%s, name:%s" (tabs level) path name))
+                (println (format "%sDirectoryNode -> path:%s, name:%s, description:%s"
+                                 (tabs level) path name (.getShortDescription node)))
                 (println (tabs level) "======================")
                 (reduce (fn [res node] (readfn res node (inc level))) result s))
 
               (= (class node) DocumentNode)
               (do
-                (println (format "%sDocumentNode -> name:%s" (tabs level) (.getName node)))
+                (println (format "%sDocumentNode -> name:%s, description:%s"
+                                 (tabs level) (.getName node) (.getShortDescription node)))
                 (read-document-node schema result node))
               :else
               (throw (IllegalStateException. (str "class " (class node) " undefined error!")))))]
     (readfn {} node 0)))
+
 
 
 (defn- print-val-seq
@@ -312,7 +347,9 @@
         content (take max-elements content)
         colums (partition-all max-columns content)
         hex-line
-        (fn [x] (apply str (map #(format format-str %) x)))]
+        (if (number? (first content))
+          (fn [x] (apply str (map #(format format-str %) x)))
+          (fn [x] (apply str (map #(format "%5s " %) x))))]
     (dorun (map #(println (tabs level) (hex-line %)) colums))
     (when (> given-elements max-elements) (println (tabs level) " ..."))))
 
@@ -326,7 +363,6 @@
   "print binary content in hex format with given tabulating level"
   [level content & args]
   (apply print-val-seq (concat [level content "%3d "] args)))
-
 
 (defn- print-legacy-items
   [items]
@@ -404,13 +440,20 @@
 
 
 (comment "usage illustration"
+  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
   (def qcn-input-stream (FileInputStream. "samples/sample.qcn"))
   (def qcn-input-stream (FileInputStream. "samples/nv-item-setup-wlan-board-complete-2015-08-14.qcn"))
-  (def qcn-input-stream (FileInputStream. "otto.qcn"))
+  (def qcn-input-stream (FileInputStream. "test.qcn"))
   (def fs (POIFSFileSystem. qcn-input-stream))
   (def nv (read-poifs-tree nv-definition-schema (.getRoot fs)))
 
+  (println "ref   \n==============\n")
+  (println "check \n==============\n")
   (read-poifs-tree-debug nv-definition-schema (.getRoot fs))
+
+  (filter #(not= 0 %) (map #(- %1 %2) (vec refc) (vec checkc)))
+  (def refc c)
+  (def checkc c)
 
   (println nv)
   (println (keys nv))
@@ -422,19 +465,26 @@
 
   (print-efs-items t-efs)
   (print-nv-item-set nv)
+  (print-nv-item-set qcn)
 
   (count nv)
+  (map #(println % "==========\n") (nv :Provisioning_Item_Files))
+
+  (first (first (nv :Provisioning_Item_Files)))
 
   (println (-> nv :Provisioning_Item_Files))
   (println (-> nv :Provisioning_Item_Files :00000019)) ;; qp_ims_dpl_config
 
   (println (-> nv :NV_ITEM_ARRAY :1014)) ;; NV_SMS_GW_CB_SERVICE_TABLE_SIZE_I
+
+  (println "REFERENCE\n===================")
   (print-qcn nv-definition-schema "samples/sample.qcn")
 
+  (println "CHECK\n===================")
+  (print-qcn nv-definition-schema "test.qcn")
 
   (println (keys (nv :NV_Items)))
   (println (keys (nv :Provisioning_Item_Files)))
   (println (keys (nv :NV_ITEM_ARRAY)))
-
 
   )

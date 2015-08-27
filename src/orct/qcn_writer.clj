@@ -60,16 +60,51 @@
              (long2byteseq 16 (count phone-sw-version))
              (map int phone-sw-version)
              (long2byteseq 16 (count qpst-app-version))
-             (map int qpst-app-version)
-             ))))
+             (map int qpst-app-version)))))
+
+
+(defn- nv-item-array-bytes
+  "read nv legacy items as byte array"
+  [nv-item-data]
+  (let [packets
+        (reduce
+         (fn [result [item {:keys [name data errors] :as params}]]
+           (if data
+             (let [item (key2str item)
+                   item (last (re-find #"^([ 0]*)(.*)" item)) ;; remove preceeding zeros
+                   item (or (edn/read-string item) 0)
+                   payload-size 128
+                   empty-bytes (- payload-size (alength data))
+                   stream-size (+ payload-size 8)
+                   packet []
+                   packet (into packet (long2byteseq 16 stream-size))
+                   packet (into packet (long2byteseq 16 1)) ;; index
+                   packet (into packet (long2byteseq 16 item))
+                   packet (into packet (long2byteseq 16 0)) ;; padding
+                   packet (into packet (vec data))
+                   packet (into packet (replicate empty-bytes 0))]
+               ;(println item name (count packet))
+               (conj result packet))
+             result))
+         []
+         nv-item-data)]
+    (byte-array (apply concat packets))))
 
 
 (comment
   (:File_Version qcn)
   (def r (file-version-info-bytes qcn))
   (def r (mobile-properaty-info-bytes qcn))
-  (vec r)
+  (def r (nv-item-array-bytes (:NV_ITEM_ARRAY qcn)))
+
+  (count (:NV_ITEM_ARRAY qcn))
+  (alength r)
+
+  (first (write-efs-items nil nil (:Provisioning_Item_Files qcn)))
+
+  (first (:Provisioning_Item_Files qcn))
   )
+
 
 
 (defn- create-root-doc-stream
@@ -87,19 +122,48 @@
   (.createDirectory poi-fs name))
 
 
-(defn write-qcn-struct-to-poi-fs
-  [qcn-struct filename]
+(defn- write-efs-items
+  [efs-dir data-dir items]
+  (dorun (map
+          (fn [[item params]]
+            (let [index (key2str item)
+                  path (key2str (:path params))
+                  data (:data params)]
+              (create-doc-stream efs-dir (.getBytes path) index)
+              (create-doc-stream data-dir data index)))
+          items)))
 
+
+(defn write-qcn-struct-to-poi-fs
+  "writes  intermediate  item data  structure  as  parsed by  function
+  parse-nv-data to POI filesystem."
+  [qcn-struct filename]
   (let [fs (POIFSFileSystem.)
         out (FileOutputStream. filename)
         file-version (create-root-doc-stream fs (file-version-info-bytes qcn-struct) "File_Version")
         model-number (create-dir fs "00000000")
         default (create-dir model-number "default")
         mob-prop (create-doc-stream default (mobile-properaty-info-bytes qcn-struct) "Mobile_Property_Info")
-        ]
-    (def default default)
-    (def fs fs)
-    (.writeFilesystem fs out)))
+
+        prov-item-dir (create-dir default "Provisioning_Item_Files")
+        prov-item-efs-dir (create-dir prov-item-dir "EFS_Dir")
+        prov-item-data-dir (create-dir prov-item-dir "EFS_Data")
+        prov-items (write-efs-items
+                    prov-item-efs-dir prov-item-data-dir (:Provisioning_Item_Files qcn-struct))
+
+
+        nv-item-dir (create-dir default "NV_Items")
+        nv-item-efs-dir (create-dir nv-item-dir "EFS_Dir")
+        nv-item-data-dir (create-dir nv-item-dir "EFS_Data")
+        nv-items (write-efs-items
+                    nv-item-efs-dir nv-item-data-dir (:NV_Items qcn-struct))
+
+        nv-numbered-items (create-dir default "NV_NUMBERED_ITEMS")
+        nv-array (create-doc-stream nv-numbered-items
+                                    (nv-item-array-bytes (:NV_ITEM_ARRAY qcn-struct))
+                                    "NV_ITEM_ARRAY")]
+    (.writeFilesystem fs out)
+    (.close out)))
 
 
 (comment
@@ -113,25 +177,9 @@
   (map #(println %) (:File_Version qcn))
   (map #(println %) (:Errors qcn))
 
-  (write-qcn-struct-to-poi-fs qcn "test.qcn" )
+  (first (:Provisioning_Item_Files qcn))
+  (first (:NV_ITEM_ARRAY qcn))
 
-  (map (fn [[item {:keys [path data errors]}]]
-         (let [item (key2str item)
-               payload-size (alength data)]
-           (println item path payload-size errors (vec data))))
-       (:NV_Items qcn))
-
-  (map (fn [[item {:keys [path data errors]}]]
-         (let [item (key2str item)
-               payload-size (alength data)]
-           (println item path payload-size errors (vec data))))
-       (:Provisioning_Item_Files qcn))
-
-  (map (fn [[item {:keys [name data errors]}]]
-         (let [item (key2str item)
-               payload-size (if data (alength data) 0)]
-           (when data
-             (println item name payload-size errors (vec data)))))
-       (:NV_ITEM_ARRAY qcn))
+  (write-qcn-struct-to-poi-fs qcn "test.qcn")
 
   )
