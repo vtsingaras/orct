@@ -65,9 +65,9 @@
         (println summary)
         -1))
     (if invalid-opts
-      (println invalid-opts)
+      (println-err invalid-opts)
       (if errors
-        (println errors)
+        (println-err errors)
         (if schema-file
           (if print-file
             (let [schema (parse-nv-definition-file schema-file)
@@ -88,10 +88,10 @@
                       (write-qcn-struct-to-poi-fs qcn output-file)
                       (println (format "file %s written!" output-file))
                       (print-nv-parser-errors qcn))
-                    (println (format "output file %s has wrong extention!" output-file)))
-                  (println "no outputfile specified error!")))))
+                    (println-err (format "output file %s has wrong extention!" output-file)))
+                  (println-err "no outputfile specified error!")))))
           (do
-            (println "both, schema and processed file needs to be specified!")
+            (println-err "both, schema and processed file needs to be specified!")
             -1))))))
 
 (comment

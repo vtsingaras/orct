@@ -53,6 +53,12 @@
   (apply str (repeat (* 2 level) " ")))
 
 
+(defn println-err
+  "println to stderr"
+  [& args]
+  (binding [*out* *err*] (apply println args)))
+
+
 (defn bytes2little-endian
   "interprets given byte sequence e.g. specified as Java array
    into corresponding little endian unsigned integer representation.

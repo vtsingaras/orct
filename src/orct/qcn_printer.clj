@@ -117,9 +117,9 @@
   [{:keys [errors]}]
   (when-not (empty? errors)
       (do
-        (println "\n==================== ERRORS ====================")
-        (dorun (map #(println %) errors))
-        (println))))
+        (println-err "\n==================== ERRORS ====================")
+        (dorun (map #(println-err %) errors))
+        (println-err))))
 
 
 (defn print-nv-item-set
