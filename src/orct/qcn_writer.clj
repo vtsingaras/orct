@@ -71,9 +71,7 @@
         (reduce
          (fn [result [item {:keys [name data errors] :as params}]]
            (if data
-             (let [item (key2str item)
-                   item (remove-preceding-zeros item)
-                   item (or (edn/read-string item) 0)
+             (let [item (-> item key2str str2int)
                    payload-size 128
                    empty-bytes (- payload-size (alength data))
                    stream-size (+ payload-size 8)

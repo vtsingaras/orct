@@ -95,7 +95,7 @@
 
 (defn- get-sorted-legacy-items
   [nv]
-  (let [itemkey2number #(-> % key2str remove-preceding-zeros edn/read-string)
+  (let [itemkey2number #(-> % key2str str2int)
         leg-item-predicate
         (fn [a b]
           (< (itemkey2number a) (itemkey2number b)))]

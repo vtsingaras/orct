@@ -87,7 +87,8 @@
                     (let [qcn (parse-nv-data schema compile-file)]
                       (write-qcn-struct-to-poi-fs qcn output-file)
                       (println (format "file %s written!" output-file))
-                      (print-nv-parser-errors qcn))
+                      (print-nv-parser-errors qcn)
+                      0)
                     (println-err (format "output file %s has wrong extention!" output-file)))
                   (println-err "no outputfile specified error!")))))
           (do
@@ -111,5 +112,5 @@
   [& args]
   (try
     (System/exit (apply cli args))
-    (catch Exception e (println  (str "caught exception: " (.getMessage e)))
+    (catch Exception e (println-err  (str "caught exception: " (.getMessage e)))
            (System/exit -1))))

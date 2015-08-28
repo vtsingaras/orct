@@ -33,13 +33,6 @@
   [k] (if k (subs (str k) 1) ""))
 
 
-(defn remove-preceding-zeros
-  "remove preceding zeros from given string
-    '000042' -> '42'"
-  [s]
-  (last (re-find #"^([ 0]*)(.*)" s)))
-
-
 (defn get-lc-filename-ext
   "returns file extention of given name in lower case"
   [s]
