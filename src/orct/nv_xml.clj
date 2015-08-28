@@ -722,7 +722,7 @@
         (assoc-in [:NV_ITEM_ARRAY] nv-items)
         (assoc-in [:NV_Items] nv-item-store)
         (assoc-in [:Provisioning_Item_Files] prov-item-store)
-        (assoc-in [:Errors] (concat (:errors nv-definition-schema) (:errors nv-xml-data)
+        (assoc-in [:errors] (concat (:errors nv-definition-schema) (:errors nv-xml-data)
                                     nv-item-errors prov-item-errors nv-item-store-errors)))))
 
 
@@ -737,7 +737,7 @@
   (map #(println %) (:Provisioning_Item_Files qcn))
   (map #(println %) (:Mobile_Property_Info qcn))
   (map #(println %) (:File_Version qcn))
-  (map #(println %) (:Errors qcn))
+  (map #(println %) (:errors qcn))
   )
 
 
@@ -745,7 +745,7 @@
 (defn parse-nv-data
   "Parse Qualcomm's non-volatile phone item xml definition data set.
 
-   nv-schema-file-name: name of schema xml file, refer e.g. to samples/NvDefintion.xml
+   nv-definition-schema: schema data, refer to function parse-nv-definition-file
    nv-data-file-name: name of data xml master file, refer e.g. to samples/Masterfile.xml
    optional: hash map with additional data
 
@@ -753,18 +753,19 @@
     :NV_ITEM_ARRAY           -> provides legacy numbered nv item backup data
     :NV_Items                -> provides EFS nv item backup data
     :Provisioning_Item_Files -> provides EFS provisioning item data
-    :Errors                  -> contains prarsing errors."
+    :errors                  -> contains prarsing errors."
 
-  ([nv-schema-file-name  nv-data-file-name]
-   (parse-nv-data nv-schema-file-name nv-data-file-name {}))
+  ([nv-definition-schema  nv-data-file-name]
+   (parse-nv-data  nv-definition-schema  nv-data-file-name  {}))
 
-  ([nv-schema-file-name  nv-data-file-name  add-on-xml-data]
-   (let [nv-definition-schema (parse-nv-definition-file nv-schema-file-name)
-        nv-xml-data (parse-nv-data-file nv-data-file-name)]
+  ([nv-definition-schema  nv-data-file-name  add-on-xml-data]
+   (let [nv-xml-data (parse-nv-data-file nv-data-file-name)]
     (transform-to-qcn-struct nv-definition-schema nv-xml-data add-on-xml-data))))
 
 
 
 (comment
-  (def qcn (parse-nv-data "samples/NvDefinition.xml" "samples/Masterfile.xml"))
+
+  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
+  (def qcn (parse-nv-data nv-definition-schema "samples/Masterfile.xml"))
   )

@@ -11,9 +11,7 @@
 (ns orct.qcn-parser
   (:use [orct.macros]
         [orct.utils]
-        [orct.nv-xml] ;; only temporary
-        [orct.qcn-writer] ;; only temporary
-        )
+        [orct.nv-xml])
   (:require [clojure.edn :as edn]
             [clojure.string :as str])
   (:import java.nio.ByteBuffer java.io.FileInputStream
@@ -321,13 +319,6 @@
    (read-poifs-tree schema node)))
 
 
-
-(defn- tabs
-  "generates a string of specified numer of blanks used as tabulating characters"
-  [level]
-  (apply str (repeat (* 2 level) " ")))
-
-
 (defn read-poifs-tree-debug
   "reads poi filesystem with specified root node and returns result as
    Clojure nested data structure.
@@ -358,123 +349,22 @@
     (readfn {} node 0)))
 
 
+(defn parse-qcn-data
+  "Parse Qualcomm's non-volatile phone item qcn definition data set.
 
-(defn- print-val-seq
-  "print sequence over multiple lines with given tabulating level"
-  [level content format-str & {:keys [max-columns max-elements] :or {max-columns 16
-                                                                     max-elements 128}}]
-  (let [given-elements (count content)
-        content (take max-elements content)
-        colums (partition-all max-columns content)
-        hex-line
-        (if (number? (first content))
-          (fn [x] (apply str (map #(format format-str %) x)))
-          (fn [x] (apply str (map #(format "%5s " %) x))))]
-    (dorun (map #(println (tabs level) (hex-line %)) colums))
-    (when (> given-elements max-elements) (println (tabs level) " ..."))))
+   nv-definition-schema: parsed schema xml file, refer e.g. to parse-nv-definition-file
+   qcn-data-file-name:  name of data qcn file, refer e.g. to samples/sample.qcn
 
+   returns nested clojure hash map in same/similar format as generated in qcn_parser.clj:
+    :NV_ITEM_ARRAY           -> provides legacy numbered nv item backup data
+    :NV_Items                -> provides EFS nv item backup data
+    :Provisioning_Item_Files -> provides EFS provisioning item data
+    :errors                  -> contains prarsing errors."
 
-(defn print-hex-content
-  "print binary content in hex format with given tabulating level"
-  [level content & args]
-  (apply print-val-seq (concat [level content "%2x "] args)))
-
-(defn print-dec-content
-  "print binary content in hex format with given tabulating level"
-  [level content & args]
-  (apply print-val-seq (concat [level content "%3d "] args)))
-
-(defn- print-legacy-items
-  [items]
-  (dorun (map (fn [[item {:keys [index data name params]}]]
-                (println (format "%sitem%s, index:%s, name:%s" (tabs 3) item index name))
-                (if params
-                  (dorun (map (fn [{:keys [name val]}]
-                                (print (format "%s%s -> " (tabs 6) name))
-                                (if (<= (count val) 16)
-                                  (if (= (count val) 1) (println (first val)) (println val))
-                                  (do (println) (print-dec-content 6 val)))) params))
-                  (do
-                    (println (tabs 6) "-- missing Schema for this parameter! --")
-                    (print-hex-content 6 data)))) items)))
-
-(defn- print-efs-items
-  [items]
-  (dorun (map (fn [[item {:keys [path data params]}]]
-                (println (format "%spath%s" (tabs 3) path))
-                (if params
-                  (dorun (map (fn [{:keys [name val]}]
-                                (print (format "%s%s -> " (tabs 6) name))
-                                (if (<= (count val) 16)
-                                  (if (= (count val) 1) (println (first val)) (println val))
-                                  (do (println) (print-dec-content 6 val)))) params))
-                  (do
-                    (println (tabs 6) "-- missing Schema for this parameter! --")
-                    (print-hex-content 6 data)))) items)))
-
-(defn- print-mobile-property-info
-  [prop]
-  (let [{:keys [mobile-model-no phone-sw-version phone-nv-minor-rev-no
-                phone-nv-major-rev-no qpst-app-version]} prop
-                tabs (tabs 6)]
-    (println (format "%smobile phone number: %s" tabs mobile-model-no))
-    (println (format "%smobile sw version: %s" tabs phone-sw-version))
-    (println (format "%sphone nv version number: %s.%s" tabs phone-nv-major-rev-no phone-nv-minor-rev-no))
-    (println (format "%sqpst app version: %s" tabs qpst-app-version))))
-
-(defn- print-file-version-info
-  [info]
-  (let [{:keys [qcn-rev-no qcn-minor-no qcn-major-no]} info
-        tabs (tabs 6)]
-    (println (format "%sqcn-rev-number:%s, qcn-version-number:%s.%s"
-                     tabs qcn-rev-no qcn-major-no qcn-minor-no))))
-
-
-(defn- get-sorted-legacy-items
-  [nv]
-  (let [itemkey2number #(-> % key2str remove-preceding-zeros edn/read-string)
-        leg-item-predicate
-        (fn [a b]
-          (< (itemkey2number a) (itemkey2number b)))]
-    (into (sorted-map-by leg-item-predicate) (nv :NV_ITEM_ARRAY))))
-
-
-(defn- get-sorted-efs-items
-  [efs-items]
-  (let [get-lc-path #(str/lower-case (-> efs-items % :path))
-        efs-item-predicate
-        (fn [a b]
-          (compare (get-lc-path a) (get-lc-path b)))]
-    (into (sorted-map-by efs-item-predicate) efs-items)))
-
-
-(defn print-nv-item-set
-  [schema nv]
-  (let [nv (subst-with-parsed-nv-efs-data schema nv)
-        errors (:errors nv)]
-    (println ">>>>> File Info >>>>>")
-    (print-file-version-info (nv :File_Version))
-    (println ">>>>> Mobile Property Info >>>>>")
-    (print-mobile-property-info (nv :Mobile_Property_Info))
-    (println ">>>>> Item File Backup >>>>>")
-    (print-legacy-items (get-sorted-legacy-items nv))
-    (println ">>>>> EFS Item Backup >>>>>")
-    (print-efs-items (get-sorted-efs-items (nv :NV_Items)))
-    (println ">>>>> Provisioning Item Files >>>>>")
-    (print-efs-items (get-sorted-efs-items (nv :Provisioning_Item_Files)))
-    (when-not (empty? errors)
-      (do
-        (println "\n==================== ERRORS ====================")
-        (dorun (map #(println %) errors))
-        (println)))))
-
-
-(defn print-qcn
-  "prints content of specified qcn NV item file. This is mainly
-   useful for debugging purposes."
-  [schema filename]
-  (let [nv (read-poifs-tree schema (.getRoot (POIFSFileSystem. (FileInputStream. filename))))]
-    (print-nv-item-set schema nv)))
+  [nv-definition-schema  qcn-data-file-name]
+  (let [qcn-input-stream (FileInputStream. qcn-data-file-name)
+        fs (POIFSFileSystem. qcn-input-stream)]
+    (read-poifs-tree nv-definition-schema (.getRoot fs))))
 
 
 
@@ -490,10 +380,6 @@
   (println "check \n==============\n")
   (read-poifs-tree-debug nv-definition-schema (.getRoot fs))
 
-  (filter #(not= 0 %) (map #(- %1 %2) (vec refc) (vec checkc)))
-  (def refc c)
-  (def checkc c)
-
   (println nv)
   (println (keys nv))
   (println (nv :NV_Items))
@@ -504,24 +390,9 @@
 
   (keys (nv :NV_Items))
 
-  (print-efs-items t-efs)
-  (print-nv-item-set nv-definition-schema nv)
-  (print-nv-item-set nv-definition-schema qcn)
-
   (println (-> nv :Provisioning_Item_Files))
   (println (-> nv :Provisioning_Item_Files :00000019)) ;; qp_ims_dpl_config
   (println (-> nv :Provisioning_Item_Files :0000001F)) ;; qp_ims_ut_config
 
   (println (-> nv :NV_ITEM_ARRAY :1014)) ;; NV_SMS_GW_CB_SERVICE_TABLE_SIZE_I
-
-  (println "REFERENCE\n===================")
-  (print-qcn nv-definition-schema "samples/sample.qcn")
-
-  (println "CHECK\n===================")
-  (print-qcn nv-definition-schema "test.qcn")
-
-  (println (keys (nv :NV_Items)))
-  (println (keys (nv :Provisioning_Item_Files)))
-  (println (keys (nv :NV_ITEM_ARRAY)))
-
   )

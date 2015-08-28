@@ -40,6 +40,19 @@
   (last (re-find #"^([ 0]*)(.*)" s)))
 
 
+(defn get-lc-filename-ext
+  "returns file extention of given name in lower case"
+  [s]
+  (when-let [s (last (re-find  #"([.])(.*)" s))]
+    (str/lower-case s)))
+
+
+(defn tabs
+  "generates a string of specified numer of blanks used as tabulating characters"
+  [level]
+  (apply str (repeat (* 2 level) " ")))
+
+
 (defn bytes2little-endian
   "interprets given byte sequence e.g. specified as Java array
    into corresponding little endian unsigned integer representation.

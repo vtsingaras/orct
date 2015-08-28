@@ -24,7 +24,8 @@
             DocumentInputStream DocumentOutputStream]))
 
 (def *qcn-default-version*
-  ^{:doc "defaults for various qcn version data" :dynamic true}
+  ^:dynamic
+  ^{:doc "defaults for various qcn version data"}
   {:Mobile_Property_Info
    {:efs 0
     :mobile-model-no 0
@@ -42,14 +43,14 @@
 (defn- file-version-info-bytes
   "read the file version info tags as byte array"
   [nv-xml-data]
-  (let [fv (:File_Version nv-xml-data)]
+  (let [fv (or (:File_Version nv-xml-data) (:File_Version *qcn-default-version*))]
     (byte-array (mapcat (partial long2byteseq 16) (vals fv)))))
 
 
-(defn- mobile-properaty-info-bytes
+(defn- mobile-property-info-bytes
   "read mobile property data as byte array"
   [nv-xml-data]
-  (let [pi (:Mobile_Property_Info nv-xml-data)
+  (let [pi (or (:Mobile_Property_Info nv-xml-data) (:Mobile_Property_Info *qcn-default-version*))
         {:keys [efs mobile-model-no phone-nv-major-rev-no phone-nv-minor-rev-no
                 phone-sw-version qpst-app-version-str-len qpst-app-version]} pi]
     (byte-array
@@ -143,7 +144,7 @@
         file-version (create-root-doc-stream fs (file-version-info-bytes qcn-struct) "File_Version")
         model-number (create-dir fs "00000000")
         default (create-dir model-number "default")
-        mob-prop (create-doc-stream default (mobile-properaty-info-bytes qcn-struct) "Mobile_Property_Info")
+        mob-prop (create-doc-stream default (mobile-property-info-bytes qcn-struct) "Mobile_Property_Info")
 
         prov-item-dir (create-dir default "Provisioning_Item_Files")
         prov-item-efs-dir (create-dir prov-item-dir "EFS_Dir")
@@ -168,7 +169,9 @@
 
 (comment
 
-  (def qcn (parse-nv-data "samples/NvDefinition.xml" "samples/Masterfile.xml" *qcn-default-version*))
+  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
+  (def qcn (parse-nv-data nv-definition-schema "samples/Masterfile.xml" *qcn-default-version*))
+  (def qcn (parse-nv-data nv-definition-schema "samples/Masterfile.xml"))
   (ns-unmap *ns* 'qcn)
 
   (map #(println %) (:NV_ITEM_ARRAY qcn))
@@ -176,7 +179,7 @@
   (map #(println %) (:Provisioning_Item_Files qcn))
   (map #(println %) (:Mobile_Property_Info qcn))
   (map #(println %) (:File_Version qcn))
-  (map #(println %) (:Errors qcn))
+  (map #(println %) (:errors qcn))
 
   (first (:Provisioning_Item_Files qcn))
   (first (:NV_ITEM_ARRAY qcn))
