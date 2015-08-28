@@ -71,7 +71,7 @@
          (fn [result [item {:keys [name data errors] :as params}]]
            (if data
              (let [item (key2str item)
-                   item (last (re-find #"^([ 0]*)(.*)" item)) ;; remove preceeding zeros
+                   item (remove-preceding-zeros item)
                    item (or (edn/read-string item) 0)
                    payload-size 128
                    empty-bytes (- payload-size (alength data))
@@ -169,6 +169,7 @@
 (comment
 
   (def qcn (parse-nv-data "samples/NvDefinition.xml" "samples/Masterfile.xml" *qcn-default-version*))
+  (ns-unmap *ns* 'qcn)
 
   (map #(println %) (:NV_ITEM_ARRAY qcn))
   (map #(println %) (:NV_Items qcn))

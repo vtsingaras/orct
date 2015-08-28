@@ -33,6 +33,13 @@
   [k] (if k (subs (str k) 1) ""))
 
 
+(defn remove-preceding-zeros
+  "remove preceding zeros from given string
+    '000042' -> '42'"
+  [s]
+  (last (re-find #"^([ 0]*)(.*)" s)))
+
+
 (defn bytes2little-endian
   "interprets given byte sequence e.g. specified as Java array
    into corresponding little endian unsigned integer representation.

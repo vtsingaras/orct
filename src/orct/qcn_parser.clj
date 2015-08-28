@@ -14,7 +14,8 @@
         [orct.nv-xml] ;; only temporary
         [orct.qcn-writer] ;; only temporary
         )
-  (:require [clojure.edn :as edn])
+  (:require [clojure.edn :as edn]
+            [clojure.string :as str])
   (:import java.nio.ByteBuffer java.io.FileInputStream
            [org.apache.poi.poifs.filesystem POIFSFileSystem DirectoryNode DocumentNode
             DocumentInputStream DocumentOutputStream]))
@@ -237,7 +238,7 @@
       :else (assoc-in result [:unprocessed name] content))))
 
 
-(defn- read-poifs-tree-first-stage
+(defn read-poifs-tree
   "first stage  parsing of  poi filesystem  with specified  root node,
   returns result as Clojure nested data structure.
 
@@ -283,23 +284,42 @@
    efs-data))
 
 
-(defn read-poifs-tree
-  "reads poi filesystem with specified root node and returns result as
-   Clojure nested data structure.
+(defn subst-with-parsed-nv-efs-data
+  "parses/substitute values for efs-items :NV_Items, :Provisioning_Item_Files
 
-  invocation example:
-  (read-poifs-tree nv-definiton schema
-      (.getRoot (POIFSFileSystem. (FileInputStream. 'input-file.qcn'))))"
-  [schema node]
+   This  can   be  useful  to   get  coninstent  and   enhanced  ASCII
+  representation  in :val  fields  e.g. for  more  readible output  of
+  character strings such as URL addresses.
 
-  (let [nv (read-poifs-tree-first-stage schema node)
-        errors (:errors nv)
+   Parameters:
+     schema: schema definition structure (parse-nv-definition-file)
+     nv:     clojure's nv-item representation, result of functions:
+             (read-poifs-tree-first-stage) (parse-nv-data)
+
+   Returns: nv-item representation with asciified value keys."
+
+  [schema nv]
+  (let [errors (:errors nv)
         [nv-items errors1] (parse-nv-efs-data schema (nv :NV_Items))
         [prov-items errors2] (parse-nv-efs-data schema (nv :Provisioning_Item_Files))]
     (-> nv
         (assoc :NV_Items nv-items)
         (assoc :Provisioning_Item_Files prov-items)
         (assoc :errors (concat errors errors1 errors2)))))
+
+
+(defn read-poifs-tree-and-parse-nv-efs-data
+  "reads poi filesystem with specified root node and returns result as
+   Clojure nested data structure. This convinient function includes
+
+  invocation example:
+  (read-poifs-tree nv-definiton schema
+      (.getRoot (POIFSFileSystem. (FileInputStream. 'input-file.qcn'))))"
+  [schema node]
+  (subst-with-parsed-nv-efs-data
+   schema
+   (read-poifs-tree schema node)))
+
 
 
 (defn- tabs
@@ -409,19 +429,39 @@
     (println (format "%sqcn-rev-number:%s, qcn-version-number:%s.%s"
                      tabs qcn-rev-no qcn-major-no qcn-minor-no))))
 
-(defn print-nv-item-set
+
+(defn- get-sorted-legacy-items
   [nv]
-  (let [errors (:errors nv)]
+  (let [itemkey2number #(-> % key2str remove-preceding-zeros edn/read-string)
+        leg-item-predicate
+        (fn [a b]
+          (< (itemkey2number a) (itemkey2number b)))]
+    (into (sorted-map-by leg-item-predicate) (nv :NV_ITEM_ARRAY))))
+
+
+(defn- get-sorted-efs-items
+  [efs-items]
+  (let [get-lc-path #(str/lower-case (-> efs-items % :path))
+        efs-item-predicate
+        (fn [a b]
+          (compare (get-lc-path a) (get-lc-path b)))]
+    (into (sorted-map-by efs-item-predicate) efs-items)))
+
+
+(defn print-nv-item-set
+  [schema nv]
+  (let [nv (subst-with-parsed-nv-efs-data schema nv)
+        errors (:errors nv)]
     (println ">>>>> File Info >>>>>")
     (print-file-version-info (nv :File_Version))
     (println ">>>>> Mobile Property Info >>>>>")
     (print-mobile-property-info (nv :Mobile_Property_Info))
     (println ">>>>> Item File Backup >>>>>")
-    (print-legacy-items (nv :NV_ITEM_ARRAY))
+    (print-legacy-items (get-sorted-legacy-items nv))
     (println ">>>>> EFS Item Backup >>>>>")
-    (print-efs-items (nv :NV_Items))
+    (print-efs-items (get-sorted-efs-items (nv :NV_Items)))
     (println ">>>>> Provisioning Item Files >>>>>")
-    (print-efs-items (nv :Provisioning_Item_Files))
+    (print-efs-items (get-sorted-efs-items (nv :Provisioning_Item_Files)))
     (when-not (empty? errors)
       (do
         (println "\n==================== ERRORS ====================")
@@ -434,8 +474,7 @@
    useful for debugging purposes."
   [schema filename]
   (let [nv (read-poifs-tree schema (.getRoot (POIFSFileSystem. (FileInputStream. filename))))]
-    ;(def nv nv)
-    (print-nv-item-set nv)))
+    (print-nv-item-set schema nv)))
 
 
 
@@ -463,17 +502,15 @@
   (println (nv :Mobile_Property_Info))
   (println (nv :File_Version))
 
+  (keys (nv :NV_Items))
+
   (print-efs-items t-efs)
-  (print-nv-item-set nv)
-  (print-nv-item-set qcn)
-
-  (count nv)
-  (map #(println % "==========\n") (nv :Provisioning_Item_Files))
-
-  (first (first (nv :Provisioning_Item_Files)))
+  (print-nv-item-set nv-definition-schema nv)
+  (print-nv-item-set nv-definition-schema qcn)
 
   (println (-> nv :Provisioning_Item_Files))
   (println (-> nv :Provisioning_Item_Files :00000019)) ;; qp_ims_dpl_config
+  (println (-> nv :Provisioning_Item_Files :0000001F)) ;; qp_ims_ut_config
 
   (println (-> nv :NV_ITEM_ARRAY :1014)) ;; NV_SMS_GW_CB_SERVICE_TABLE_SIZE_I
 

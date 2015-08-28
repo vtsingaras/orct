@@ -292,31 +292,44 @@
                    (condp contains? type
                      #{"uint8"}
                      (if (isnumber? next-item)
-                       {:type "uint8" :val (long2byteseq 8 (edn/read-string (hexprefix next-item)))}
-                       {:type "string" :val (byte-array-str-of-size next-item no-elements)})
+                       (let [val (edn/read-string (hexprefix next-item))]
+                         {:type "uint8" :val val :data (long2byteseq 8 val)})
+                       {:type "string" :val next-item
+                        :data (byte-array-str-of-size next-item no-elements)})
 
                      safe-number-types
                      (let [bits (case type "int8"8 "int16" 16 "int32" 32 "int64" 64
                                       "uint16" 16 "uint32" 32 "uint64" 64)]
                        (if (isnumber? next-item)
-                         {:type type :val (long2byteseq bits (edn/read-string (hexprefix next-item)))}
-                         {:type "undefined" :val nil
+                         (let [val (edn/read-string (hexprefix next-item))]
+                           {:type type :val val :data (long2byteseq bits val)})
+                         {:type "undefined" :val 0 :data nil
                           :errors (format "parameter %s not a number" next-item)}))
 
                      #{"string"}
-                     {:type "string" :val (byte-array-str-of-size next-item no-elements)})]
+                     (let [val (byte-array-str-of-size next-item no-elements)]
+                       {:type "string" :val next-item
+                        :data (byte-array-str-of-size next-item no-elements)}))]
                (conj processed-items processed-item)))
            [#_processed]
            item-str-seq)]
       result)))
 
+(comment
+  (valstr2byte-seqs (split-value-list-string "0x0102, 304") "uint16" 2 "hex")
+  )
 
 (defn- valstr2byte-array
-  "Takes  string of form 'val1,  val2, ...'  and returns corresponding
-  byte  array.   Function  checks  for  correct  encoding  and  throws
-  exeception in case  of wrong declaration. The only  exception is the
-  data type  uint8 which can  be used  to declare character  string as
-  well."
+  "Takes string of  form 'val1, val2, ...' and  returns parsing result
+  within hash table of the form:
+
+   -> params: parsed parameter list, each parameter with :type, val: and :data
+   -> data:   byte array of all parsed data
+   -> errors: found parsing errors
+
+  Function checks  for correct encoding  and returns error in  case of
+  wrong declaration. The  only exception is the data  type uint8 which
+  can be used to declare character string as well."
   [string-or-seq  type  no-elements  encoding]
   (let [errors []
         errors (if (contains? (set/union number-types string-types) type)
@@ -325,9 +338,9 @@
         errors (if (contains? #{"hex" "dec" "string"} encoding)
                  errors
                  (conj errors (format "wrong encoding %s declared error!" encoding)))
-        null-array (byte-array [0])]
+        error-hash {:data (byte-array [0]) :params {}}]
     (if (not-empty errors)
-      [null-array errors] ;; in case of error return null-array and error msg.
+      (assoc error-hash :errors errors)
       (let [s (if (string? string-or-seq) (split-value-list-string string-or-seq) string-or-seq)
             result-seq (valstr2byte-seqs s type no-elements encoding)
             no-result-elements (count result-seq)
@@ -340,9 +353,11 @@
                                             no-elements no-result-elements))
                        errors))]
         (if (not-empty errors)
-          [null-array errors]
-          [(byte-array (mapcat :val result-seq)) errors])))))
-
+          (assoc error-hash :errors errors)
+          {:params result-seq
+           :val (map #(% :val) result-seq)
+           :data (byte-array (mapcat :data result-seq))
+           :errors errors})))))
 
 
 (comment
@@ -355,8 +370,8 @@
   (def r (valstr2byte-array "0x20, 0x21" "uint16" 3 "hex"))  ;; -> not ok: parameter mismatch
   (def r (valstr2byte-array "ims" "uint8" 30 "hex"))         ;; -> ok
 
-  (vec (first r))
-  (String. (first r))
+  (vec (:data r))
+  (String. (:data r))
   )
 
 
@@ -379,11 +394,7 @@
               {:keys [name type size] :as schema}]
            (def work-param-lst work-param-lst)
            (let [[next-params rest-params] (split-at size work-param-lst)
-                 [data err] (valstr2byte-array next-params type size encoding)
-                 result-param (-> schema
-                                   (assoc :val next-params)
-                                   (assoc :data data)
-                                   (assoc :errors err))]
+                 result-param (merge schema (valstr2byte-array next-params type size encoding))]
              [(conj ready-param-lst result-param) rest-params]))
          [[] param-seq]
          schema-seq)]
@@ -392,10 +403,11 @@
 
 (comment
 
-  (transform-item-params-to-qcn-struct
-   [{:name "" :type "uint8" :size 1} {:name "" :type "uint8" :size 1} {:name "" :type "uint8" :size 1}]
-   {:index 0, :mapping "direct" :encoding "dec" :provisioning-store nil, :content ["0, 1, 0"]})
+  (def r (transform-item-params-to-qcn-struct
+          [{:name "" :type "uint8" :size 1} {:name "" :type "uint8" :size 1} {:name "" :type "uint8" :size 1}]
+          {:index 0, :mapping "direct" :encoding "dec" :provisioning-store nil, :content ["0, 1, 0"]}))
 
+  (vec (:data (first r)))
   )
 
 
@@ -419,24 +431,17 @@
                             path)))
             (let [type "uint8"
                   encoding "dec"
-                  [data errors] (valstr2byte-array (first xml-content) type 1 encoding)]
-              [{:name "undefined" :val xml-content :type "uint8" :member-idx 0
-                :data data :errors (conj errors "missing schema!")}]))
+                  params (valstr2byte-array (first xml-content) type 1 encoding)]
+              [(assoc-in params [:errors] (conj (:errors params) "missing schema!"))]))
 
           (map? (first xml-content)) ;; nv provided as associate array (hash map) for components
           (map
            (fn [{:keys [tag attrs content]} member-idx]
              (let [member-def (get-member-by-name-or-ordinal-number
                                efs-schema (key2str tag) member-idx)
-                   [data err] (valstr2byte-array (first content) (:type member-def)
+                   params (valstr2byte-array (first content) (:type member-def)
                                                  (:size member-def) encoding)]
-               {:name tag
-                :val content
-                :data data
-                :type (:type member-def)
-                :size (:size member-def)
-                :member-idx member-idx
-                :errors err}))
+               (merge member-def params)))
            xml-content
            (iterate inc 0))
 
@@ -462,6 +467,7 @@
   ;; structured components
   (def r (test-transform-efs-item-params :/nv/item_files/ims/qp_ims_dpl_config))
   (def r (test-transform-efs-item-params :/nv/item_files/ims/qp_ims_sms_config))
+  (def r (test-transform-efs-item-params :/nv/item_files/ims/qp_ims_ut_config))
 
   ;; no schema
   (def r (test-transform-efs-item-params :/nv/item_files/modem/utils/a2/bam_dynamic_config))
