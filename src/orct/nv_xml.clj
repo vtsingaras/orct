@@ -393,7 +393,6 @@
         (reduce
          (fn [[ready-param-lst work-param-lst]
               {:keys [name type size] :as schema}]
-           (def work-param-lst work-param-lst)
            (let [[next-params rest-params] (split-at size work-param-lst)
                  result-param (merge schema (valstr2byte-array next-params type size encoding))]
              [(conj ready-param-lst result-param) rest-params]))
@@ -675,6 +674,7 @@
   [nv-definition-schema  nv-items]
   (let [nv-item-schema (:nv-items nv-definition-schema)
         schema-missing-msg "no schema given!"
+        default-schema [{:name "" :type "uint8" :size 1}] ;; used when undefined
         [result errors]
 
         (reduce
@@ -687,8 +687,10 @@
                                           (:content idx-schema)
                                           params)
 
-                                         [(assoc-in params [:errors] schema-missing-msg)
-                                          [schema-missing-msg]])
+                                         (let [[p e] (transform-nv-item-params-to-qcn-struct
+                                                       default-schema
+                                                       params)]
+                                           [p (conj e schema-missing-msg)]))
                    par-errors-str (pr-str (map #(str % ",") par-errors))]
 
                [(assoc result idx params)
