@@ -70,21 +70,25 @@
   (let [packets
         (reduce
          (fn [result [item {:keys [name data errors] :as params}]]
-           (if data
-             (let [item (-> item key2str str2int)
-                   payload-size 128
-                   empty-bytes (- payload-size (alength data))
-                   stream-size (+ payload-size 8)
-                   packet []
-                   packet (into packet (long2byteseq 16 stream-size))
-                   packet (into packet (long2byteseq 16 1)) ;; index
-                   packet (into packet (long2byteseq 16 item))
-                   packet (into packet (long2byteseq 16 0)) ;; padding
-                   packet (into packet (vec data))
-                   packet (into packet (replicate empty-bytes 0))]
-               ;(println item name (count packet))
-               (conj result packet))
-             result))
+           (try
+             (if data
+               (let [item (-> item key2str str2int)
+                     payload-size 128
+                     empty-bytes (- payload-size (alength data))
+                     stream-size (+ payload-size 8)
+                     packet []
+                     packet (into packet (long2byteseq 16 stream-size))
+                     packet (into packet (long2byteseq 16 1)) ;; index
+                     packet (into packet (long2byteseq 16 item))
+                     packet (into packet (long2byteseq 16 0)) ;; padding
+                     packet (into packet (vec data))
+                     packet (into packet (replicate empty-bytes 0))]
+                                        ;(println item name (count packet))
+                 (conj result packet))
+               result)
+             (catch Throwable t (throw (IllegalStateException.
+                                        (format "Error in transformation of nv-item array occurred in item %s:\n%s"
+                                                (pr-str item) (pr-str params)))))))
          []
          nv-item-data)]
     (byte-array (apply concat packets))))
@@ -125,11 +129,15 @@
   [efs-dir data-dir items]
   (dorun (map
           (fn [[item params]]
-            (let [index (key2str item)
-                  path (key2str (:path params))
-                  data (:data params)]
-              (create-doc-stream efs-dir (.getBytes path) index)
-              (create-doc-stream data-dir data index)))
+            (try
+              (let [index (key2str item)
+                    path (key2str (:path params))
+                    data (:data params)]
+                (create-doc-stream efs-dir (.getBytes path) index)
+                (create-doc-stream data-dir data index))
+              (catch Throwable t (throw (IllegalStateException.
+                                         (format "Error when writing efs-items %s occurred:\n%s\n%s"
+                                                 (pr-str (:path params)) (pr-str item) (pr-str params)))))))
           items)))
 
 

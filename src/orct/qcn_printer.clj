@@ -47,32 +47,46 @@
 
 (defn- print-legacy-items
   [items]
-  (dorun (map (fn [[item {:keys [index data name params]}]]
-                (println (format "%sitem%s, index:%s, name:%s" (tabs 3) item index name))
-                (if params
-                  (dorun (map (fn [{:keys [name val]}]
-                                (print (format "%s%s -> " (tabs 6) name))
-                                (if (<= (count val) 16)
-                                  (if (= (count val) 1) (println (first val)) (println val))
-                                  (do (println) (print-dec-content 6 val)))) params))
-                  (do
-                    (println (tabs 6) "-- missing Schema for this parameter! --")
-                    (print-hex-content 6 data)))) items)))
+  (dorun
+   (map
+    (fn [[item {:keys [index data name params] :as item-args}]]
+      (try
+        (println (format "%sitem%s, index:%s, name:%s" (tabs 3) item index name))
+        (if params
+          (dorun (map (fn [{:keys [name val]}]
+                        (print (format "%s%s -> " (tabs 6) name))
+                        (if (<= (count val) 16)
+                          (if (= (count val) 1) (println (first val)) (println val))
+                          (do (println) (print-dec-content 6 val)))) params))
+          (do
+            (println (tabs 6) "-- missing Schema for this parameter! --")
+            (print-hex-content 6 data)))
+        (catch Throwable t (throw (IllegalStateException.
+                                   (format "Error in printing of nv-item %s occurred:\n%s"
+                                           (pr-str item) (pr-str item-args))))))
+      ) items)))
 
 
 (defn- print-efs-items
   [items]
-  (dorun (map (fn [[item {:keys [path data params]}]]
-                (println (format "%spath%s" (tabs 3) path))
-                (if params
-                  (dorun (map (fn [{:keys [name val]}]
-                                (print (format "%s%s -> " (tabs 6) name))
-                                (if (<= (count val) 16)
-                                  (if (= (count val) 1) (println (first val)) (println val))
-                                  (do (println) (print-dec-content 6 val)))) params))
-                  (do
-                    (println (tabs 6) "-- missing Schema for this parameter! --")
-                    (print-hex-content 6 data)))) items)))
+  (dorun
+   (map
+    (fn [[item {:keys [path data params] :as item-args}]]
+      (try
+        (println (format "%spath%s" (tabs 3) path))
+        (if params
+          (dorun (map (fn [{:keys [name val]}]
+                        (print (format "%s%s -> " (tabs 6) name))
+                        (if (<= (count val) 16)
+                          (if (= (count val) 1) (println (first val)) (println val))
+                          (do (println) (print-dec-content 6 val)))) params))
+          (do
+            (println (tabs 6) "-- missing Schema for this parameter! --")
+            (print-hex-content 6 data)))
+        (catch Throwable t (throw (IllegalStateException.
+                                   (format "Error in printing of efs-item %s occurred:\n%s"
+                                           (pr-str path) (pr-str item-args))))))
+      ) items)))
 
 
 (defn- print-mobile-property-info

@@ -108,6 +108,7 @@
                              update (-> result
                                         (assoc-in [:errors] errors)
                                         (assoc-in [:nv-items id :name] (-> n :attrs :name))
+                                        (assoc-in [:nv-items id :index ] (-> n :attrs :index))
                                         (assoc-in [:nv-items id :mapping ] (-> n :attrs :mapping))
                                         (assoc-in [:nv-items id :encoding] (-> n :attrs :encoding))
                                         (assoc-in [:nv-items id :content]
@@ -519,28 +520,32 @@
 
          (fn [[result idx errors]
               efs-item]
-           (let [idx-key (keyword (format "%08d" idx))
-                 [path params] efs-item
+           (try
+             (let [idx-key (keyword (format "%08d" idx))
+                   [path params] efs-item
 
-                 efs-struct
-                 (try
-                   (transform-efs-item-params-to-qcn-struct nv-definition
-                                                            efs-item)
-                   (catch Throwable e [nil
-                                       (do (def efs-item efs-item) (format "item path %s malformed error: %s"
-                                                      path (.getMessage e)))]))
-                 [efs-data par-errors] (aggregate-param-member-data efs-struct)
-                 par-errors-str (pr-str (map #(str % ",") par-errors))
-                 errors (if (not-empty par-errors)
-                          (concat errors [(format "errors for efs-nv %s: %s" path par-errors-str)])
-                          errors)]
+                   efs-struct
+                   (try
+                     (transform-efs-item-params-to-qcn-struct nv-definition
+                                                              efs-item)
+                     (catch Throwable e [nil
+                                         (do (def efs-item efs-item) (format "item path %s malformed error: %s"
+                                                                             path (.getMessage e)))]))
+                   [efs-data par-errors] (aggregate-param-member-data efs-struct)
+                   par-errors-str (pr-str (map #(str % ",") par-errors))
+                   errors (if (not-empty par-errors)
+                            (concat errors [(format "errors for efs-nv %s: %s" path par-errors-str)])
+                            errors)]
 
-             [(-> result
-                  (assoc-in [idx-key :path] path)
-                  (assoc-in [idx-key :params] efs-struct)
-                  (assoc-in [idx-key :data] efs-data))
-              (inc idx)
-              errors]))
+               [(-> result
+                    (assoc-in [idx-key :path] path)
+                    (assoc-in [idx-key :params] efs-struct)
+                    (assoc-in [idx-key :data] efs-data))
+                (inc idx)
+                errors])
+             (catch Throwable t (throw (IllegalStateException.
+                                        (format "Error in transformation of efs-items occurred:\n%s"
+                                                (pr-str efs-item)))))))
 
          [{#_index_nv-item}  0 #_idx  [#_errors]]
          efs-items)]
@@ -675,20 +680,24 @@
         (reduce
          (fn [[result errors]
               [idx params]]
-           (let [idx-schema (nv-item-schema idx)
-                 [params par-errors] (if idx-schema
-                                       (transform-nv-item-params-to-qcn-struct
-                                        (:content idx-schema)
-                                        params)
+           (try
+             (let [idx-schema (nv-item-schema idx)
+                   [params par-errors] (if idx-schema
+                                         (transform-nv-item-params-to-qcn-struct
+                                          (:content idx-schema)
+                                          params)
 
-                                       [(assoc-in params [:errors] schema-missing-msg)
-                                        [schema-missing-msg]])
-                 par-errors-str (pr-str (map #(str % ",") par-errors))]
+                                         [(assoc-in params [:errors] schema-missing-msg)
+                                          [schema-missing-msg]])
+                   par-errors-str (pr-str (map #(str % ",") par-errors))]
 
-             [(assoc result idx params)
-              (if (not-empty par-errors)
-                (concat errors [(format "errors for nv %s: %s" idx par-errors-str)])
-                errors)]))
+               [(assoc result idx params)
+                (if (not-empty par-errors)
+                  (concat errors [(format "errors for nv %s: %s" idx par-errors-str)])
+                  errors)])
+             (catch Throwable t (throw (IllegalStateException.
+                                        (format "Error in transformation of nv-item %s occurred:\n%s"
+                                                (pr-str idx) (pr-str params)))))))
 
          [{#_index_nv-item}  [#_errors]]
          nv-items)]

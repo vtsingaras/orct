@@ -51,7 +51,8 @@
         compile-file (:compile options)
         invalid-opts (not-empty errors)
         title-str (str
-                   "ORCT: Parsing and Gerenation of Qualcomm Radio Calibration Data Files (QCN)\n")
+                   "ORCT: Parsing and Gerenation of Qualcomm Radio Calibration Data Files (QCN)\n"
+                   "      (C) 2015, GNU General Public Licence by Otto Linnemann\n")
         start-msg-fmt (str
                        "starting application with\n"
                        "\t      schema definition file: %s\n"
@@ -59,47 +60,49 @@
         start-msg (format start-msg-fmt schema-file print-file)
         file-ext-pred #(= %1 (get-lc-filename-ext %2))]
     (println title-str)
-    (when (or (:help options) (not (or schema-file print-file)) invalid-opts)
+    (if (or (:help options) (not (or schema-file print-file)) invalid-opts)
       (do
         (println "  Invocation:\n")
         (println summary)
-        -1))
-    (if invalid-opts
-      (println-err invalid-opts)
-      (if errors
-        (println-err errors)
-        (if schema-file
-          (if print-file
-            (let [schema (parse-nv-definition-file schema-file)
-                  print
-                  (condp file-ext-pred print-file
-                    "qcn" (parse-qcn-data schema print-file)
-                    "xml" (parse-nv-data schema print-file))]
-              (println (format "Parsing result for file %s using schema definition %s"
-                               print-file schema-file))
-              (print-nv-item-set schema print)
-              0)
-            (if compile-file
+        (if invalid-opts (println-err invalid-opts) )
+        -1)
+      (if invalid-opts
+        (println-err invalid-opts)
+        (if errors
+          (println-err errors)
+          (if schema-file
+            (if print-file
               (let [schema (parse-nv-definition-file schema-file)
-                    [output-file] arguments]
-                (if output-file
-                  (if (= (get-lc-filename-ext output-file) "qcn")
-                    (let [qcn (parse-nv-data schema compile-file)]
-                      (write-qcn-struct-to-poi-fs qcn output-file)
-                      (println (format "file %s written!" output-file))
-                      (print-nv-parser-errors qcn)
-                      0)
-                    (println-err (format "output file %s has wrong extention!" output-file)))
-                  (println-err "no outputfile specified error!")))))
-          (do
-            (println-err "both, schema and processed file needs to be specified!")
-            -1))))))
+                    print
+                    (condp file-ext-pred print-file
+                      "qcn" (parse-qcn-data schema print-file)
+                      "xml" (parse-nv-data schema print-file))]
+                (println (format "Parsing result for file %s using schema definition %s"
+                                 print-file schema-file))
+                (print-nv-item-set schema print)
+                0)
+              (if compile-file
+                (let [schema (parse-nv-definition-file schema-file)
+                      [output-file] arguments]
+                  (if output-file
+                    (if (= (get-lc-filename-ext output-file) "qcn")
+                      (let [qcn (parse-nv-data schema compile-file)]
+                        (write-qcn-struct-to-poi-fs qcn output-file)
+                        (println (format "file %s written!" output-file))
+                        (print-nv-parser-errors qcn)
+                        0)
+                      (println-err (format "output file %s has wrong extention!" output-file)))
+                    (println-err "no outputfile specified error!")))))
+            (do
+              (println-err "both, schema and processed file needs to be specified!")
+              -1)))))))
 
 (comment
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/sample.qcn")
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/Masterfile.xml")
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/Masterfile.xml" "abc")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml" "abc.qcn")
+  (cli "-s" "samples/NvDefinition.xml" "-p" "abc.qcn")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml" "abc.qxn")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml")
   (cli "-sxadf" "samples/NvDefinition.xml")
@@ -112,5 +115,10 @@
   [& args]
   (try
     (System/exit (apply cli args))
-    (catch Exception e (println-err  (str "caught exception: " (.getMessage e)))
-           (System/exit -1))))
+    (catch Throwable t
+      (let [msg (format "%s" (.getMessage t))
+            cause (.getCause t)
+            st (.getStackTrace t)]
+        (println msg)
+        (when cause (println "cause: " cause))
+        (dorun (map #(println %) st))))))
