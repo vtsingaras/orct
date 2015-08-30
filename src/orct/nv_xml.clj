@@ -76,7 +76,9 @@
   (let [sep (java.io.File/separator)
         t (java.io.File. template-file-name)
         p (.getParent t)]
-    (str p sep filename-to-extend)))
+    (if p
+      (str p sep filename-to-extend)
+      filename-to-extend)))
 
 
 (defn parse-nv-data-file
