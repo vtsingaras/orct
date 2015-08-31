@@ -522,7 +522,7 @@
          (fn [[result idx errors]
               efs-item]
            (try
-             (let [idx-key (keyword (format "%08d" idx))
+             (let [idx-key (keyword (str/upper-case (format "%08x" idx)))
                    [path params] efs-item
 
                    efs-struct
