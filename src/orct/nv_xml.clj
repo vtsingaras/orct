@@ -110,7 +110,7 @@
                              update (-> result
                                         (assoc-in [:errors] errors)
                                         (assoc-in [:nv-items id :name] (-> n :attrs :name))
-                                        (assoc-in [:nv-items id :index ] (-> n :attrs :index))
+                                        (assoc-in [:nv-items id :index ] (or (-> n :attrs :index) "1"))
                                         (assoc-in [:nv-items id :mapping ] (-> n :attrs :mapping))
                                         (assoc-in [:nv-items id :encoding] (-> n :attrs :encoding))
                                         (assoc-in [:nv-items id :content]
@@ -124,7 +124,7 @@
                                       errors)
                              update (-> result
                                         (assoc-in [:errors] errors)
-                                        (assoc-in [:efs-items name :index ] (-> n :attrs :index))
+                                        (assoc-in [:efs-items name :index ] (or (-> n :attrs :index) "1"))
                                         (assoc-in [:efs-items name :mapping ] (-> n :attrs :mapping))
                                         (assoc-in [:efs-items name :encoding] (-> n :attrs :encoding))
                                         (assoc-in [:efs-items name :provisioning-store]

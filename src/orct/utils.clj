@@ -52,8 +52,9 @@
 (defn get-lc-filename-ext
   "returns file extention of given name in lower case"
   [s]
-  (when-let [s (last (re-find  #"([.])(.*)" s))]
-    (str/lower-case s)))
+  (let [bn (.getName (java.io.File. s))]
+    (when-let [e (last (re-find  #"([.])(.*)" bn))]
+      (str/lower-case e))))
 
 
 (defn tabs

@@ -97,7 +97,7 @@
                            "uint8" rest-uint8-or-str-pair
                            "uint16" rest-uint16-pair
                            "uint32" rest-uint32-pair
-                           "uint64" rest-uint32-pair
+                           "uint64" rest-uint64-pair
                            "string" rest-str-pair
                            (throw (IllegalStateException. (format "type %s invalid!" type))))
                       [byte-buffer dec-value] (if (:dont-repeat (meta op))

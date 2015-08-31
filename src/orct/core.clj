@@ -10,12 +10,14 @@
 
 (ns orct.core
   (:require [clojure.xml :as xml]
-            [clojure.tools.cli :refer [parse-opts]])
+            [clojure.tools.cli :refer [parse-opts]]
+            [clojure.java.shell :refer [sh]])
   (:use [orct.qcn-parser]
         [orct.qcn-printer]
         [orct.qcn-writer]
         [orct.nv-xml]
-        [orct.utils])
+        [orct.utils]
+        [orct.macros])
   (:import java.nio.ByteBuffer java.io.FileInputStream)
   (:gen-class))
 
@@ -35,7 +37,73 @@
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
    ["-c" "--compile XML-Masterfile QCN-Outputfile" "compile xml data with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
+   ["-d" "--diff XML-Masterfile file1 file2 " "diff qcn or xml data with given SCHEMA definition file."
+    :validate [#(.exists (java.io.File. %)) "file must exist"]]
+   ["-t" "--diff-tool diff-executable" "diff tool to used, defaults to diff"]
    ["-h" "--help" "this help string"]])
+
+
+(defn- file-ext-pred
+  [file-ext filename]
+  (= file-ext (get-lc-filename-ext filename)))
+
+
+(defn- print-file
+  [schema-file schema file-to-print]
+  (let [p-result (condp file-ext-pred file-to-print
+                   "qcn" (parse-qcn-data schema file-to-print)
+                   "xml" (parse-nv-data schema file-to-print))]
+    (println (format "Parsing result for file %s using schema definition %s"
+                     file-to-print schema-file))
+    (print-nv-item-set schema p-result))
+  0)
+
+
+(defn- compile-file
+  [schema-file schema file-to-compile output-file]
+  (if output-file
+    (if (= (get-lc-filename-ext output-file) "qcn")
+      (let [qcn (parse-nv-data schema file-to-compile)]
+        (write-qcn-struct-to-poi-fs qcn output-file)
+        (println (format "file %s written!" output-file))
+        (print-nv-parser-errors qcn)
+        0)
+      (do (println-err (format "output file %s has wrong extention!" output-file)) -1))
+    (do (println-err "no outputfile specified error!") -1)))
+
+
+(defn- compile-first-then-print-file-to
+  "enforce compilation and read back compile data for exact diffing"
+  [schema-file  schema  file-to-print  output-txt-file]
+  (let [p-result (condp file-ext-pred file-to-print
+                   "qcn" (parse-qcn-data schema file-to-print)
+                   "xml" (let [output-file (java.io.File/createTempFile "orct-intermediate-diff" ".qcn")
+                               ccres (compile-file schema-file schema file-to-print (str output-file))
+                               result (parse-qcn-data schema output-file)
+                               _ (clojure.java.io/delete-file output-file)]
+                           result))]
+    (redir-out output-txt-file (print-nv-item-set schema p-result)))
+  0)
+
+
+(defn- diff-files
+  [schema-file schema diff-file1 diff-file2 tool]
+  (if diff-file2
+    (let [tmp1 (java.io.File/createTempFile diff-file1 ".txt")
+          tmp2 (java.io.File/createTempFile diff-file2 ".txt")
+          cc1 (compile-first-then-print-file-to  schema-file schema diff-file1 tmp1)
+          cc2 (compile-first-then-print-file-to  schema-file schema diff-file2 tmp2)
+          {:keys [exit out err]}
+          (if (or (not= cc1 0) (not= cc2 0))
+            {:err (format "could not open/process tempory files %s1, %s2" tmp1 tmp2)}
+            (clojure.java.shell/sh tool (str tmp1) (str tmp2)))
+          del1 (clojure.java.io/delete-file tmp1)
+          del2 (clojure.java.io/delete-file tmp2)]
+      (println (format "======= diff result %s %s =======" diff-file1 diff-file2))
+      (println out)
+      (when (not-empty err) (println-err err))
+      exit)
+    (do (println-err "second file to diff to not specified error!") -1)))
 
 
 (defn- cli
@@ -47,8 +115,10 @@
         summary (:summary opts)
         errors (:errors opts)
         schema-file (:schema options)
-        print-file (:print options)
-        compile-file (:compile options)
+        print-file-opt (:print options)
+        compile-file-opt (:compile options)
+        diff-file-opt (:diff options)
+        diff-tool-opt (or (:diff-tool options) "diff")
         invalid-opts (not-empty errors)
         title-str (str
                    "ORCT: Parsing and Gerenation of Qualcomm Radio Calibration Data Files (QCN)\n"
@@ -57,10 +127,9 @@
                        "starting application with\n"
                        "\t      schema definition file: %s\n"
                        "\t              qcn input file: %s\n")
-        start-msg (format start-msg-fmt schema-file print-file)
-        file-ext-pred #(= %1 (get-lc-filename-ext %2))]
+        start-msg (format start-msg-fmt schema-file print-file-opt)]
     (println title-str)
-    (if (or (:help options) (not (or schema-file print-file)) invalid-opts)
+    (if (or (:help options) (not (or schema-file print-file-opt)) invalid-opts)
       (do
         (println "  Invocation:\n")
         (println summary)
@@ -71,28 +140,13 @@
         (if errors
           (println-err errors)
           (if schema-file
-            (if print-file
-              (let [schema (parse-nv-definition-file schema-file)
-                    print
-                    (condp file-ext-pred print-file
-                      "qcn" (parse-qcn-data schema print-file)
-                      "xml" (parse-nv-data schema print-file))]
-                (println (format "Parsing result for file %s using schema definition %s"
-                                 print-file schema-file))
-                (print-nv-item-set schema print)
-                0)
-              (if compile-file
-                (let [schema (parse-nv-definition-file schema-file)
-                      [output-file] arguments]
-                  (if output-file
-                    (if (= (get-lc-filename-ext output-file) "qcn")
-                      (let [qcn (parse-nv-data schema compile-file)]
-                        (write-qcn-struct-to-poi-fs qcn output-file)
-                        (println (format "file %s written!" output-file))
-                        (print-nv-parser-errors qcn)
-                        0)
-                      (println-err (format "output file %s has wrong extention!" output-file)))
-                    (println-err "no outputfile specified error!")))))
+            (let [schema (parse-nv-definition-file schema-file)]
+              (if print-file-opt
+                (print-file schema-file schema print-file-opt)
+                (if compile-file-opt
+                  (compile-file schema-file schema compile-file-opt (first arguments))
+                  (if diff-file-opt
+                    (diff-files schema-file schema diff-file-opt (first arguments) diff-tool-opt)))))
             (do
               (println-err "both, schema and processed file needs to be specified!")
               -1)))))))
@@ -105,6 +159,9 @@
   (cli "-s" "samples/NvDefinition.xml" "-p" "abc.qcn")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml" "abc.qxn")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml")
+  (cli "-s" "samples/NvDefinition.xml" "-d" "samples/Masterfile.xml" "abc.qcn")
+  (cli "-s" "samples/NvDefinition.xml" "-d" "samples/Masterfile.xml" "samples/Masterfile_changed.xml")
+  (cli "-s" "samples/NvDefinition.xml" "-d" "samples/Masterfile.xml" "samples/Masterfile_changed.xml" "-t" "meld")
   (cli "-sxadf" "samples/NvDefinition.xml")
   (cli "--help")
   (cli)

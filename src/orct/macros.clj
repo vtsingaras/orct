@@ -27,3 +27,11 @@
    Attention: does not work under clojurescript!"
     [h f]
     `(apply ~f (mapcat #(vector (key %) (val %)) ~h)))
+
+
+(defmacro redir-out
+  "bind stdout to filename, refer to
+   http://briancarper.net/blog/495/clojure-redirecting-output-to-a-file"
+  [filename & body]
+  `(with-open [w# (clojure.java.io/writer ~filename)]
+     (binding [*out* w#] ~@body)))
