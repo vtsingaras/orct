@@ -10,7 +10,23 @@
 
 (ns orct.utils
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.java.io :as io])
+  (:import java.util.Properties))
+
+
+(defn get-version
+  "reads version data from the pom.properties META-INF file
+   refer to:
+   https://groups.google.com/d/msg/leiningen/7G24ifiYvOA/h6xmjeWaO3gJ"
+  [dep]
+  (let [path (str "META-INF/maven/" (or (namespace dep) (name dep))
+                  "/" (name dep) "/pom.properties")
+        props (io/resource path)]
+    (when props
+      (with-open [stream (io/input-stream props)]
+        (let [props (doto (Properties.) (.load stream))]
+          (.getProperty props "version"))))))
 
 
 (defn str2int

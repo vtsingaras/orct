@@ -32,7 +32,7 @@
     :phone-nv-major-rev-no 0
     :phone-nv-minor-rev-no 0
     :phone-sw-version ""
-    :qpst-app-version "QMSL 6.0.47"}
+    :qpst-app-version (str "ORCT " (get-version 'orct))}
 
    :File_Version
    {:qcn-major-no 2
