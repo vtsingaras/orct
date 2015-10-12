@@ -1,6 +1,6 @@
-(defproject orct "0.1.0-SNAPSHOT"
+(defproject orct "0.2.0-SNAPSHOT"
   :description "An enhanced Open Source Implementation to replace Qualcomm's QRCT"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/linneman/orct"
   :license {:name "GNU General Public Licence v2"
             :url "http://www.gnu.org/licence"}
   :dependencies [[org.clojure/clojure "1.7.0"]

@@ -35,6 +35,8 @@
     :validate [#(.exists (java.io.File. %)) "files must exist"]]
    ["-p" "--print QCN-FILE|XML-Masterfile" "print qcn data with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
+   ["-u" "--update QCN-FILE|XML-Masterfile" "generate update script with given SCHEMA definition file."
+    :validate [#(.exists (java.io.File. %)) "file must exist"]]
    ["-c" "--compile XML-Masterfile QCN-Outputfile" "compile xml data with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
    ["-d" "--diff XML-Masterfile file1 file2 " "diff qcn or xml data with given SCHEMA definition file."
@@ -49,14 +51,24 @@
 
 
 (defn- print-file
-  [schema-file schema file-to-print]
+  [schema-file schema file-to-print & {:keys [style output] :or {style :ascii}}]
   (let [p-result (condp file-ext-pred file-to-print
                    "qcn" (parse-qcn-data schema file-to-print)
                    "xml" (parse-nv-data schema file-to-print))]
-    (println (format "Parsing result for file %s using schema definition %s"
-                     file-to-print schema-file))
-    (print-nv-item-set schema p-result))
-  0)
+    (condp = style
+      :ascii
+      (do
+        (println (format "Parsing result for file %s using schema definition %s"
+                         file-to-print schema-file))
+        (print-nv-item-set schema p-result)
+        0)
+      :update-script
+      (if output
+        (do
+          (redir-out output (print-nv-item-set-update-script schema p-result))
+          (println (format "file %s written!" output))
+          0)
+        (do (println-err "no outputfile specified error!") -1)))))
 
 
 (defn- compile-file
@@ -116,12 +128,14 @@
         errors (:errors opts)
         schema-file (:schema options)
         print-file-opt (:print options)
+        update-file-opt (:update options)
         compile-file-opt (:compile options)
         diff-file-opt (:diff options)
         diff-tool-opt (or (:diff-tool options) "diff")
         invalid-opts (not-empty errors)
         title-str (str
                    "ORCT: Parsing and Gerenation of Qualcomm Radio Calibration Data Files (QCN)\n"
+                   "      refer to https://github.com/linneman/orct for more information\n"
                    "      (C) 2015, GNU General Public Licence by Otto Linnemann\n")
         start-msg-fmt (str
                        "starting application with\n"
@@ -129,7 +143,7 @@
                        "\t              qcn input file: %s\n")
         start-msg (format start-msg-fmt schema-file print-file-opt)]
     (println title-str)
-    (if (or (:help options) (not (or schema-file print-file-opt)) invalid-opts)
+    (if (or (:help options) (not (or schema-file print-file-opt update-file-opt)) invalid-opts)
       (do
         (println "  Invocation:\n")
         (println summary)
@@ -141,18 +155,23 @@
           (println-err errors)
           (if schema-file
             (let [schema (parse-nv-definition-file schema-file)]
-              (if print-file-opt
-                (print-file schema-file schema print-file-opt)
-                (if compile-file-opt
-                  (compile-file schema-file schema compile-file-opt (first arguments))
-                  (if diff-file-opt
-                    (diff-files schema-file schema diff-file-opt (first arguments) diff-tool-opt)))))
+              (condp #(%1 %2) options
+                :print (print-file schema-file schema print-file-opt)
+                :update (print-file schema-file schema update-file-opt
+                                    :style :update-script :output (first arguments))
+                :compile (compile-file schema-file schema compile-file-opt (first arguments))
+                :diff (diff-files schema-file schema diff-file-opt (first arguments) diff-tool-opt)))
             (do
               (println-err "both, schema and processed file needs to be specified!")
               -1)))))))
 
 (comment
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/sample.qcn")
+  (cli "-s" "samples/NvDefinition.xml" "-u" "samples/sample.qcn" "samples/update.sh")
+  (cli "-s" "samples/NvDefinition.xml" "-u" "samples/sample.qcn")
+  (cli "-u" "samples/sample.qcn" "samples/update.sh")
+  (cli "-p" "samples/sample.qcn")
+  (cli "-u" "samples/sample.qcn")
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/Masterfile.xml")
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/Masterfile.xml" "abc")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml" "abc.qcn")
