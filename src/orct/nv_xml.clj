@@ -29,6 +29,36 @@
        content))
 
 
+(defn- calculate-item-definition-size
+  "calculate overall size of a given parameter within schema definition
+   sample invocation:
+
+  This shall  be handled with  care! It is exclusively  required since
+  (some, all?)  legacy NV  items do not  carry decent  size information
+  within the qcn binary container. So we need to be able to calculate
+  the size information from the schema."
+
+  [item-definition-vec]
+  (reduce
+   (fn [sum item]
+     (let [{:keys [size type]} item
+           type-bits (str2int (or (re-find (re-pattern "\\d+") type) "0"))
+           type-bytes (/ type-bits 8)
+           elem-size (* type-bytes size)]
+       (+ sum elem-size))
+     )
+   0 item-definition-vec))
+
+
+(comment
+  (calculate-item-definition-size
+   [{:name "par1" :type "uint8" :size 2}
+    {:name "par2" :type "int32" :size 1}
+    {:name "par3" :type "string" :size 100}
+    ])
+  )
+
+
 (defn parse-nv-definition-file
   "parse NvDefintion file which provides the xml schema definition
   for mobile phone NV item setup."
@@ -43,21 +73,24 @@
               result (cond
                        (= (:tag n) :NvItem)
                        (let [id (keyword (-> n :attrs :id))
-                             errors (if (-> result :nv-item id)
-                                      (conj errors (format "nv item %s multiple defined!" (key2str id)))
+                             errors (if (-> result :nv-items id)
+                                      (conj errors (format "schema for nv item %s multiple defined!" (key2str id)))
                                       errors)
+                             content (parse-nv-definition-content id content)
                              update (-> result
                                         (assoc-in [:errors] errors)
                                         (assoc-in [:nv-items id :name] (-> n :attrs :name))
                                         (assoc-in [:nv-items id :permission ] (-> n :attrs :permission))
-                                        (assoc-in [:nv-items id :content]
-                                                  (parse-nv-definition-content id content)))]
+                                        (assoc-in [:nv-items id :content] content)
+                                        (assoc-in [:nv-items id :size]
+                                                  (calculate-item-definition-size content))
+                                        )]
                          update)
 
                        (= (:tag n) :NvEfsItem)
                        (let [name (keyword (-> n :attrs :fullpathname))
                              errors (if (-> result :efs-items name)
-                                      (conj errors (format "efs item %s multiple defined!" (key2str name)))
+                                      (conj errors (format "schema efs item %s multiple defined!" (key2str name)))
                                       errors)
                              update (-> result
                                         (assoc-in [:errors] errors)

@@ -67,6 +67,7 @@
         (do
           (redir-out output (print-nv-item-set-update-script schema p-result))
           (println (format "file %s written!" output))
+          (print-nv-parser-errors p-result)
           0)
         (do (println-err "no outputfile specified error!") -1)))))
 
@@ -135,7 +136,7 @@
         invalid-opts (not-empty errors)
         title-str (str
                    "ORCT: Parsing and Gerenation of Qualcomm Radio Calibration Data Files (QCN)\n"
-                   "      refer to https://github.com/linneman/orct for more information\n"
+                   (format "      Version: %s, refer to https://github.com/linneman/orct for more information\n" (get-version 'orct))
                    "      (C) 2015, GNU General Public Licence by Otto Linnemann\n")
         start-msg-fmt (str
                        "starting application with\n"

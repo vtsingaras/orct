@@ -20,10 +20,11 @@
 
 (defn- print-val-seq
   "print byte sequence over multiple lines with given tabulating level"
-  [level content format-str & {:keys [max-columns max-elements line-sep]
+  [level content format-str & {:keys [max-columns max-elements line-sep print-cont-dots]
                                :or {max-columns 16
                                     max-elements 128
-                                    line-sep ""}}]
+                                    line-sep ""
+                                    print-cont-dots true}}]
   (let [given-elements (count content)
         content (map #(bit-and 0xff %) (take max-elements content))
         colums (partition-all max-columns content)
@@ -32,7 +33,7 @@
           (fn [x] (apply str (map #(format format-str %) x)))
           (fn [x] (apply str (map #(format "%5s " %) x))))]
     (dorun (map #(println (tabs level) (hex-line %) line-sep) colums))
-    (when (> given-elements max-elements) (println (tabs level) " ..."))))
+    (when (and print-cont-dots (> given-elements max-elements)) (println (tabs level) " ..."))))
 
 
 (defn print-hex-content
@@ -68,19 +69,25 @@
                                            (pr-str item) (pr-str item-args))))))
       ) items)))
 
+
+
 (defn- print-legacy-items-update-script
-  [items]
+  [schema items]
   (dorun
    (map
     (fn [[item {:keys [index data name params] :as item-args}]]
-      (try
-        (println (format "echo 'update item%s, name:%s'" item name))
-        (println (format "nvimgr --item %s 0 \\" (key2str item)))
-        (print-dec-content 1 data  :line-sep "\\" :max-elements 8000)
-        (println "\n")
-        (catch Throwable t (throw (IllegalStateException.
-                                   (format "Error in printing of nv-item %s occurred:\n%s"
-                                           (pr-str item) (pr-str item-args))))))
+      (let [item-schema ((:nv-items schema) item)
+            size-in-schema (or (:size item-schema) 0)
+            max-elements (if (> size-in-schema 0) size-in-schema 8000)]
+        (try
+          (println (format "echo 'update item%s, name:%s'" item name))
+          (println (format "nvimgr --item %s 0 \\" (key2str item)))
+          (print-dec-content 1 data  :line-sep "\\" :max-elements max-elements
+                             :print-cont-dots false)
+          (println "\n")
+          (catch Throwable t (throw (IllegalStateException.
+                                     (format "Error in printing of nv-item %s occurred:\n%s"
+                                             (pr-str item) (pr-str item-args)))))))
       ) items)))
 
 
@@ -207,7 +214,7 @@
   (println "# refer to https://github.com/linneman/orct for further information")
   (println "\n\n")
   (let [nv (subst-with-parsed-nv-efs-data schema nv)]
-    (print-legacy-items-update-script (get-sorted-legacy-items nv))
+    (print-legacy-items-update-script schema (get-sorted-legacy-items nv))
     (print-efs-items-update-script (get-sorted-efs-items (nv :NV_Items)))
     (print-efs-items-update-script (get-sorted-efs-items (nv :Provisioning_Item_Files)))))
 
@@ -231,7 +238,7 @@
   (println "REFERENCE\n===================")
   (print-nv-item-set nv-definition-schema nv-ref)
   (print-nv-item-set-update-script nv-definition-schema nv-ref)
-  (print-legacy-items-update-script (get-sorted-legacy-items nv-ref))
+  (print-legacy-items-update-script nv-definition-schema (get-sorted-legacy-items nv-ref))
   (print-efs-items-update-script (get-sorted-efs-items (nv-ref :NV_Items)))
   (print-nv-parser-errors nv-ref)
   (print-nv-parser-errors (subst-with-parsed-nv-efs-data nv-definition-schema nv-ref) )

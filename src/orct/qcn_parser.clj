@@ -363,8 +363,10 @@
 
   [nv-definition-schema  qcn-data-file-name]
   (let [qcn-input-stream (FileInputStream. qcn-data-file-name)
-        fs (POIFSFileSystem. qcn-input-stream)]
-    (read-poifs-tree nv-definition-schema (.getRoot fs))))
+        fs (POIFSFileSystem. qcn-input-stream)
+        qcn-data (read-poifs-tree nv-definition-schema (.getRoot fs))]
+    (-> qcn-data
+        (assoc-in [:errors] (concat (:errors nv-definition-schema) (:errors qcn-data))))))
 
 
 
