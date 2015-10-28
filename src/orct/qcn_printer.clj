@@ -81,7 +81,7 @@
             max-elements (if (> size-in-schema 0) size-in-schema 8000)]
         (try
           (println (format "echo 'update item%s, name:%s'" item name))
-          (println (format "nvimgr --item %s 0 \\" (key2str item)))
+          (println (format "nvimgr --legacy-item %s %d \\" (key2str item) (count data)))
           (print-dec-content 1 data  :line-sep "\\" :max-elements max-elements
                              :print-cont-dots false)
           (println "\n")
@@ -120,7 +120,7 @@
     (fn [[item {:keys [path data params] :as item-args}]]
       (try
         (println (format "echo ' update efs-item path%s'" path))
-        (println (format "nvimgr --item %s %d \\" (key2str path) (count data)))
+        (println (format "nvimgr --file-item %s %d \\" (key2str path) (count data)))
         (print-dec-content 1 data  :line-sep "\\" :max-elements 8000)
         (println "\n")
         (catch Throwable t (throw (IllegalStateException.
