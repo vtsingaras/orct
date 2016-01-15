@@ -374,7 +374,13 @@
         errors (if (contains? #{"hex" "dec" "string"} encoding)
                  errors
                  (conj errors (format "wrong encoding %s declared error!" encoding)))
-        error-hash {:data (byte-array [0]) :params {}}]
+        error-hash {:data (byte-array [0]) :params {}}
+        ;; when more than 20 elements expected, but only one string given
+        ;; and no field separator detected ',' we can safely assume that
+        ;; the specified element is really a string and overload the type
+        type (if (and (string? string-or-seq)
+                      (> no-elements 20)
+                      (not (re-find #"," string-or-seq))) "string" type)]
     (if (not-empty errors)
       (assoc error-hash :errors errors)
       (let [s (if (string? string-or-seq) (split-value-list-string string-or-seq) string-or-seq)
@@ -405,6 +411,8 @@
   (def r (valstr2byte-array "0x20, 2az" "uint16" 2 "hex"))   ;; -> not ok: parameter not a number
   (def r (valstr2byte-array "0x20, 0x21" "uint16" 3 "hex"))  ;; -> not ok: parameter mismatch
   (def r (valstr2byte-array "ims" "uint8" 30 "hex"))         ;; -> ok
+  (def r (valstr2byte-array "123" "uint8" 30 "hex"))         ;; -> ok, one string, no comma, elems>20
+  (def r (valstr2byte-array "123," "uint8" 30 "hex"))        ;; -> not ok,  comma, prop. list meant
 
   (vec (:data r))
   (String. (:data r))
