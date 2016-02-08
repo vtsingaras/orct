@@ -53,7 +53,7 @@
   "returns file extention of given name in lower case"
   [s]
   (let [bn (.getName (java.io.File. s))]
-    (when-let [e (last (re-find  #"([.])(.*)" bn))]
+    (when-let [e (last (re-find  #"([^.]+)$" bn))]
       (str/lower-case e))))
 
 

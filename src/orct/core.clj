@@ -24,7 +24,8 @@
 
 (comment
   (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
-  (print-qcn nv-definition-schema "samples/sample.qcn")
+  (def p-result (parse-qcn-data nv-definition-schema "samples/sample.qcn"))
+  (print-nv-item-set nv-definition-schema p-result)
  )
 
 

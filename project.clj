@@ -1,4 +1,4 @@
-(defproject orct "0.2.4-SNAPSHOT"
+(defproject orct "0.2.5-SNAPSHOT"
   :description "An enhanced Open Source Implementation to replace Qualcomm's QRCT"
   :url "https://github.com/linneman/orct"
   :license {:name "GNU General Public Licence v2"
