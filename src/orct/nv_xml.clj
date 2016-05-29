@@ -59,8 +59,8 @@
   )
 
 
-(defn parse-nv-definition-file
-  "parse NvDefintion file which provides the xml schema definition
+(defn- parse-nv-definition-file-stage-1
+  "1st stage of NvDefintion file parse which provides the xml schema definition
   for mobile phone NV item setup."
   [filename]
   (let [nv-def-xml (xml/parse filename)]
@@ -98,8 +98,121 @@
                                         (assoc-in [:efs-items name :content ]
                                                   (parse-nv-definition-content name content)))]
                          update)
+
+                       (= (:tag n) :DataType)
+                       (let [name (keyword (-> n :attrs :name))
+                             errors (if (-> result :data-type name)
+                                      (conj errors (format "data type %s multiple defined!" (key2str name)))
+                                      errors)
+                             update (-> result
+                                        (assoc-in [:errors] errors)
+                                        (assoc-in [:data-type name :content]
+                                                  (parse-nv-definition-content name content)))]
+                         update)
+
                        :else result)]
           (recur result (z/next loc)))))))
+
+
+
+(defn- subst-nv-content-data-types
+  "helper function, replaces in specified content schema defintion
+   a combined data type by its atomic definition. See following
+   comment block for usage illustration."
+  [nv-definition-schema item-content-data]
+  (let [combined-data-types (dissoc
+                             (:data-type nv-definition-schema)
+                             :uint8 :uint16 :uint32 :uint64 :int8 :int16 :int32 :int64 :string)]
+    (flatten
+     (reduce
+      (fn [content-members content-member]
+        (let [{:keys [name type size]} content-member
+              type (keyword type)
+              combined-data-type (:content (combined-data-types type))]
+          (conj content-members
+                (if combined-data-type
+                  (flatten (repeat size combined-data-type))
+                  content-member))))
+      (list)
+      (reverse item-content-data)))))
+
+
+
+(comment
+
+  (def my-nv-item-content (:content (:29306 (:nv-items nv-definition-schema))))
+
+  (println "before subst-->" my-nv-item-content)
+  (println "after subst-->" (subst-nv-content-data-types nv-definition-schema my-nv-item-content))
+
+  )
+
+
+(defn- subst-nv-data-types
+  "helper function which replaces all combined data types within
+   given schema items list by the associated atomic definitions.
+   Refer to following comment block for usage illustration."
+  [nv-definition-schema items]
+  (reduce
+   (fn [result item]
+     (let [ikey (key item)
+           ival (val item)
+           new-content (subst-nv-content-data-types
+                                      nv-definition-schema
+                                      (:content ival))
+           ival (assoc ival :content new-content)
+           ival (assoc ival :size (calculate-item-definition-size new-content))]
+       (merge result {ikey ival})))
+   {} #_result
+   items)
+  )
+
+
+(comment
+
+  (def nv-def-subs-items (subst-nv-data-types nv-definition-schema (:nv-items nv-definition-schema)))
+
+  (def my-nv-item-content (:content (:29306 (:nv-items nv-definition-schema))))
+  (def my-nv-item-content-2 (:content (:29306 nv-def-subs-items)))
+
+  )
+
+
+(defn- subst-all-combined-schema-data-types
+  "Substitute all combined data types which are defined elsewhere
+   in the nv-defintion-schema under the tag :data-type by the
+   given atomic types. Refer to next comment block for usage
+   illustration."
+  [nv-definition-schema]
+  (loop [iterations 3
+         result-schema nv-definition-schema]
+    (if (zero? iterations)
+      result-schema
+      (recur (dec iterations)
+             (-> result-schema
+                 (assoc :nv-items
+                        (subst-nv-data-types result-schema (:nv-items result-schema)))
+                 (assoc :efs-items
+                        (subst-nv-data-types result-schema (:efs-items result-schema))))))))
+
+
+(comment
+
+  (def nv-defintion-schema-2 (subst-all-combined-schema-data-types nv-definition-schema))
+
+  (def my-nv-item-content (:content (:29306 (:nv-items nv-definition-schema))))
+  (def my-nv-item-content-2 (:content (:29306 (:nv-items nv-defintion-schema-2))))
+
+  )
+
+
+(defn parse-nv-definition-file
+  "parse NvDefintion file which provides the xml schema definition
+  for mobile phone NV item setup."
+  [filename]
+  (subst-all-combined-schema-data-types
+   (parse-nv-definition-file-stage-1 filename))
+  )
 
 
 (defn- extend-to-same-path

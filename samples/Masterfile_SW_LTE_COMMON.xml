@@ -1,4 +1,11 @@
 <NvSource>
+
+  <NvEfsItem id="29306" subscriptionid="0"
+             fullpathname="/nv/item_files/rfnv/00029306" name="/nv/item_files/rfnv/00029306"
+             mapping="direct" encoding="dec" index="0">
+    0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
+  </NvEfsItem>
+
   <NvEfsItem index="0" encoding="hex" mapping="direct" name="/nv/item_files/modem/lte/lte_3gpp_release_ver" fullpathname="/nv/item_files/modem/lte/lte_3gpp_release_ver">0x23</NvEfsItem>
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/mmode/sms_only" fullpathname="/nv/item_files/modem/mmode/sms_only">0</NvEfsItem>
   <NvEfsItem index="0" encoding="dec" mapping="direct" name="/nv/item_files/modem/mmode/ue_usage_setting" fullpathname="/nv/item_files/modem/mmode/ue_usage_setting">0</NvEfsItem>

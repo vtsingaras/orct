@@ -231,6 +231,17 @@ xsi:schemaLocation="file://RFA_NvDefinition_Schema.xsd RFA_NvDefinition_Schema.x
   <Member type="uint16" sizeOf="30" name="ramp_up"/>
   <Member type="uint16" sizeOf="30" name="ramp_down"/>
 </DataType>
+
+<DataType name="lte_xpt_path_bw_offset_delay_type">
+  <Member type="int32" sizeOf="16" name="1P4_MHZ"/>
+  <Member type="int32" sizeOf="16" name="3_MHZ"/>
+  <Member type="int32" sizeOf="16" name="5_MHZ"/>
+  <Member type="int32" sizeOf="16" name="10_MHZ"/>
+  <Member type="int32" sizeOf="16" name="15_MHZ"/>
+  <Member type="int32" sizeOf="16" name="20_MHZ"/>
+  <Member type="int32" sizeOf="16" name="40_MHZ"/>
+</DataType>
+
 <NvItem id="10" name="NV_PREF_MODE_I" permission="readwrite">
   <Member type="uint8" sizeOf="1" name=""/>
   <Member type="uint16" sizeOf="1" name=""/>
@@ -43196,6 +43207,13 @@ NV_GPRS_ANITE_GCF_I                            = 947,
   <Member type="uint16" sizeOf="1" name="port_list[8].frame_mode" />
   <Member type="int16" sizeOf="1" name="port_list[8].data_port" />
 </NvItem>
+
+
+<NvEfsItem id="29306" fullpathname="/nv/item_files/rfnv/00029306" name="/nv/item_files/rfnv/00029306" permission="read_write" tech="lte" category="tx" container="0" band="66">
+  <Member type="int16" sizeOf="8" name="HEADER"/>
+  <Member type="lte_xpt_path_bw_offset_delay_type" sizeOf="1" name="TX_XPT_PATH_DELAY_OFFSET"/>
+</NvEfsItem>
+
 
 <NvEfsItem fullpathname="/nv/item_files/modem/lte/lte_3gpp_release_ver" name="/nv/item_files/modem/lte/lte_3gpp_release_ver" permission="read_write">
   <Member type="uint8" sizeOf="1" name=""/>
