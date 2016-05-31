@@ -74,10 +74,11 @@
    into corresponding little endian unsigned integer representation.
    example: (bytes2little-endian-uint [0x03 0x01]) -> 259"
   [bytes]
-  (let [byte-pos-pairs (partition 2 (interleave bytes (range (count bytes)) ))]
-    (reduce (fn [result [next-byte pos]]
-              (+ result (bit-shift-left (bit-and next-byte 0xff) (* 8 pos))))
-            0 byte-pos-pairs)))
+  (let [bytes (or (seq bytes) [0 0])]
+    (let [byte-pos-pairs (partition 2 (interleave bytes (range (count bytes)) ))]
+      (reduce (fn [result [next-byte pos]]
+                (+ result (bit-shift-left (bit-and next-byte 0xff) (* 8 pos))))
+              0 byte-pos-pairs))))
 
 (defn bytes2little-endian-uint
   "interprets given byte sequence e.g. specified as Java array
@@ -93,12 +94,12 @@
    into corresponding little endian signed integer representation.
    example: (bytes2little-endian-uint [0x03 0x01]) -> 259"
   [bytes]
-  (let [sign (bit-and 0x80 (last bytes))
-        ures (bytes2little-endian bytes)]
-    (if (= 0 sign)
-      ures
-      (- ures (bit-shift-left 1 (* 8 (count bytes)))))))
-
+  (let [bytes (or (seq bytes) [0 0])]
+    (let [sign (bit-and 0x80 (last bytes))
+          ures (bytes2little-endian bytes)]
+      (if (= 0 sign)
+        ures
+        (- ures (bit-shift-left 1 (* 8 (count bytes))))))))
 
 (defn long2byteseq
   "converts an integer value (max 64 bit) into byte array.

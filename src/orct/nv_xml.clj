@@ -59,6 +59,14 @@
   )
 
 
+(defn- is-nvitem-strid-extended?
+  "ALL items with ID 20000 or above are stored as an file in EFS area
+   /nv/item_files/rfnv/000xxxxx, where xxxxx is the ID. Function returns
+   true if this is the case."
+  [sid]
+  (>= (str2int sid) 20000))
+
+
 (defn- parse-nv-definition-file-stage-1
   "1st stage of NvDefintion file parse which provides the xml schema definition
   for mobile phone NV item setup."
@@ -69,10 +77,12 @@
         result
         (let [n (z/node loc)
               content (-> n :content)
+              id (-> n :attrs :id)
               errors (:errors result)
               result (cond
-                       (= (:tag n) :NvItem)
-                       (let [id (keyword (-> n :attrs :id))
+                       ;; classical nv item ranging from 0 to 19999
+                       (and (= (:tag n) :NvItem) (not (is-nvitem-strid-extended? id)))
+                       (let [id (keyword id)
                              errors (if (-> result :nv-items id)
                                       (conj errors (format "schema for nv item %s multiple defined!" (key2str id)))
                                       errors)
@@ -87,6 +97,20 @@
                                         )]
                          update)
 
+                       ;; extended rf nv item from 20000 and above stored in the same way as efs items
+                       (and (= (:tag n) :NvItem) (is-nvitem-strid-extended? id))
+                       (let [name (keyword (str "/nv/item_files/rfnv/000" id))
+                             errors (if (-> result :efs-items name)
+                                      (conj errors (format "schema efs item %s multiple defined!" (key2str name)))
+                                      errors)
+                             update (-> result
+                                        (assoc-in [:errors] errors)
+                                        (assoc-in [:efs-items name :permission ] (-> n :attrs :permission))
+                                        (assoc-in [:efs-items name :content ]
+                                                  (parse-nv-definition-content name content)))]
+                         update)
+
+                       ;; explicit efs stored item
                        (= (:tag n) :NvEfsItem)
                        (let [name (keyword (-> n :attrs :fullpathname))
                              errors (if (-> result :efs-items name)
@@ -99,6 +123,7 @@
                                                   (parse-nv-definition-content name content)))]
                          update)
 
+                       ;; data type declaration
                        (= (:tag n) :DataType)
                        (let [name (keyword (-> n :attrs :name))
                              errors (if (-> result :data-type name)
@@ -170,10 +195,32 @@
 
 (comment
 
+  (def nv-definition-schema (parse-nv-definition-file-stage-1 "samples/NvDefinition_9640.xml"))
+
   (def nv-def-subs-items (subst-nv-data-types nv-definition-schema (:nv-items nv-definition-schema)))
 
   (def my-nv-item-content (:content (:29306 (:nv-items nv-definition-schema))))
   (def my-nv-item-content-2 (:content (:29306 nv-def-subs-items)))
+
+  (def nv28154 ((:efs-items nv-definition-schema) (keyword "/nv/item_files/rfnv/00028154")))
+
+
+  (def efs-definition-schema (:efs-items nv-definition-schema))
+  (def nv28154 (efs-definition-schema (keyword "/nv/item_files/rfnv/00028154")))
+
+  (def efs-definition-schema_1 (subst-nv-data-types nv-definition-schema efs-definition-schema))
+  (def nv28154_1 (efs-definition-schema_1 (keyword "/nv/item_files/rfnv/00028154")))
+
+  (def efs-definition-schema_2 (subst-nv-data-types nv-definition-schema efs-definition-schema_1))
+  (def nv28154_2 (efs-definition-schema_2 (keyword "/nv/item_files/rfnv/00028154")))
+
+  (def efs-definition-schema_3 (subst-nv-data-types nv-definition-schema efs-definition-schema_2))
+  (def nv28154_3 (efs-definition-schema_3 (keyword "/nv/item_files/rfnv/00028154")))
+
+  (def efs-definition-schema_4 (subst-nv-data-types nv-definition-schema efs-definition-schema_3))
+  (def nv28154_4 (efs-definition-schema_4 (keyword "/nv/item_files/rfnv/00028154")))
+
+  (println nv28154_4)
 
   )
 
@@ -184,14 +231,12 @@
    given atomic types. Refer to next comment block for usage
    illustration."
   [nv-definition-schema]
-  (loop [iterations 3
+  (loop [iterations 5
          result-schema nv-definition-schema]
     (if (zero? iterations)
       result-schema
       (recur (dec iterations)
              (-> result-schema
-                 (assoc :nv-items
-                        (subst-nv-data-types result-schema (:nv-items result-schema)))
                  (assoc :efs-items
                         (subst-nv-data-types result-schema (:efs-items result-schema))))))))
 
@@ -237,8 +282,10 @@
         result
         (let [n (z/node loc)
               content (-> n :content)
+              id (-> n :attrs :id)
               errors (:errors result)
               result (cond
+                       ;; include of additional nv definition files
                        (= (:tag n) :xi:include)
                        (let [xml-include (-> n :attrs :href)
                              include-file (first (str/split xml-include #"#"))
@@ -248,8 +295,9 @@
                                result (merge-with merge (dissoc result :errors) (dissoc inside :errors))]
                            (-> result (assoc-in [:errors] errors))))
 
-                       (= (:tag n) :NvItem)
-                       (let [id (keyword (-> n :attrs :id))
+                       ;; classical nv item ranging from 0 to 19999
+                       (and (= (:tag n) :NvItem) (not (is-nvitem-strid-extended? id)))
+                       (let [id (keyword id)
                              errors (if (-> result :nv-item id)
                                       (conj errors (format "nv item %s multiple defined!" (key2str id)))
                                       errors)
@@ -263,6 +311,24 @@
                                                   content))]
                          update)
 
+                       ;; extended rf nv item from 20000 and above stored in the same way as efs items
+                       (and (= (:tag n) :NvItem) (is-nvitem-strid-extended? id))
+                       (let [name (keyword (str "/nv/item_files/rfnv/000" id))
+                             errors (if (-> result :efs-items name)
+                                      (conj errors (format "efs item %s multiple defined!" (key2str name)))
+                                      errors)
+                             update (-> result
+                                        (assoc-in [:errors] errors)
+                                        (assoc-in [:efs-items name :index ] (or (-> n :attrs :index) "1"))
+                                        (assoc-in [:efs-items name :mapping ] (-> n :attrs :mapping))
+                                        (assoc-in [:efs-items name :encoding] (-> n :attrs :encoding))
+                                        (assoc-in [:efs-items name :provisioning-store]
+                                                  (-> n :attrs :useProvisioningStore))
+                                        (assoc-in [:efs-items name :content]
+                                                  content))]
+                         update)
+
+                       ;; explicit efs stored item
                        (= (:tag n) :NvEfsItem)
                        (let [name (keyword (-> n :attrs :fullpathname))
                              errors (if (-> result :efs-items name)
@@ -933,6 +999,35 @@
 
 (comment
 
-  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
+  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition_9640.xml"))
+  (def qcn (parse-nv-data nv-definition-schema "samples/UMC-9240P_C2_v0.07_ECE_static.xml"))
+
   (def qcn (parse-nv-data nv-definition-schema "samples/Masterfile.xml"))
+
+
+  (println ((:efs-items nv-definition-schema) (keyword "/nv/item_files/rfnv/00028154")))
+
+  (def schema-content-27830 (:content ((:efs-items nv-definition-schema) (keyword "/nv/item_files/rfnv/00027830"))))
+
+  (map #(println %) schema-content-27830)
+
+  (first (:NV_Items  qcn))
+
+  (def qcn_h
+    (reduce
+     (fn [h entry]
+       (let [lfd (key entry)
+             item (val entry)
+             path (:path item)]
+         (assoc h path item)))
+     {}
+     (:NV_Items  qcn)))
+
+
+  (def qcn-content-27830 (qcn_h (keyword "/nv/item_files/rfnv/00027830")))
+
+  (def mydata (:data qcn-content-27830))
+
+  (take 50 (bytes mydata))
+
   )

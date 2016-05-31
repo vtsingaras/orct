@@ -136,7 +136,7 @@
         diff-tool-opt (or (:diff-tool options) "diff")
         invalid-opts (not-empty errors)
         title-str (str
-                   "ORCT: Parsing and Gerenation of Qualcomm Radio Calibration Data Files (QCN)\n"
+                   "ORCT: Parsing and Generation of Qualcomm Radio Calibration Data Files (QCN)\n"
                    (format "      Version: %s, refer to https://github.com/linneman/orct for more information\n" (get-version 'orct))
                    "      (C) 2015, GNU General Public Licence by Otto Linnemann\n")
         start-msg-fmt (str
