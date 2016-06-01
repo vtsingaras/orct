@@ -106,6 +106,8 @@
                              update (-> result
                                         (assoc-in [:errors] errors)
                                         (assoc-in [:efs-items name :permission ] (-> n :attrs :permission))
+                                        (assoc-in [:efs-items name :compressed ] (-> n :attrs :compressed))
+                                        (assoc-in [:efs-items name :variable-size ] (-> n :attrs :variableSize))
                                         (assoc-in [:efs-items name :content ]
                                                   (parse-nv-definition-content name content)))]
                          update)
@@ -319,12 +321,12 @@
                                       errors)
                              update (-> result
                                         (assoc-in [:errors] errors)
-                                        (assoc-in [:efs-items name :index ] (or (-> n :attrs :index) "1"))
-                                        (assoc-in [:efs-items name :mapping ] (-> n :attrs :mapping))
-                                        (assoc-in [:efs-items name :encoding] (-> n :attrs :encoding))
-                                        (assoc-in [:efs-items name :provisioning-store]
+                                        (assoc-in [:rf-items name :index ] (or (-> n :attrs :index) "1"))
+                                        (assoc-in [:rf-items name :mapping ] (-> n :attrs :mapping))
+                                        (assoc-in [:rf-items name :encoding] (-> n :attrs :encoding))
+                                        (assoc-in [:rf-items name :provisioning-store]
                                                   (-> n :attrs :useProvisioningStore))
-                                        (assoc-in [:efs-items name :content]
+                                        (assoc-in [:rf-items name :content]
                                                   content))]
                          update)
 
@@ -633,7 +635,40 @@
   )
 
 
-(defn- transform-efs-item-params-to-qcn-struct
+
+(defn- delta-seq
+  "from a given sequence generates a new sequence with elements
+     v2(n) = v1(n) - v1(n-1)"
+  [v]
+  (let [v (vec v)]
+    (map (fn [a b] (- b a))
+         (conj (seq v) 1) (conj (vec v) (last v)))))
+
+(defn undefined-elems-exclusively-at-end?
+  "for a given sequence of ones (ok) and zeros (error) returns
+     true when errors occur exclusively at the end of the sequence
+     and the first element is not an error (1).
+     examples:
+     (undefined-elems-exclusively-at-end? '(1 1 1 1 1 1 0 0 0 0 0)) -> 1
+     (undefined-elems-exclusively-at-end? '(1 1 1 1 1 1 0 0 1 0 0)) -> 0
+     (undefined-elems-exclusively-at-end? '(1 1 0 1 1 1 0 0 0 0 0)) -> 0
+     "
+  [s]
+  (and (first s)
+       (not-any? #(= % 1) (delta-seq s))))
+
+
+(comment
+
+  (undefined-elems-exclusively-at-end? '(1 1 1 1 1 1 0 0 0 0 0))
+  (undefined-elems-exclusively-at-end? '(0 1 1 1 1 1 1 0 0 0 0 0))
+  (undefined-elems-exclusively-at-end? '(0 0 0 0 0 1 1 1 ))
+  (undefined-elems-exclusively-at-end? '(0  0 0 0 1))
+
+  )
+
+
+(defn- transform-efs-item-params-to-qcn-struct-stage-1
   "transform nv  parameter content  data given  in format  parsed from
   xml  definition  into same  format  as  used  by qcn  parser.  Takes
   nv-definition-schema and and distinctive efs-item as input arguments
@@ -675,9 +710,27 @@
     (vec result)))
 
 
+(defn- transform-efs-item-params-to-qcn-struct
+  "same as transform-efs-item-params-to-qcn-struct-stage-1
+   plus additional relaxed error handling if parameter
+   variable-size is defined"
+  [nv-definition-schema  efs-item]
+  (let [r (transform-efs-item-params-to-qcn-struct-stage-1 nv-definition-schema efs-item)
+        [path xml-params] efs-item
+        efs-schema-variable (-> nv-definition-schema :efs-items path :variable-size)]
+    (if efs-schema-variable
+      (let [params-defined-flags (map #(if (empty? (:params %)) 0 1) r)
+            no-elements-defined (reduce + params-defined-flags)]
+        (if (undefined-elems-exclusively-at-end? params-defined-flags)
+          (take no-elements-defined r)                        ; ok
+          r))
+      r)))
+
+
 (comment ;; usage illustration
 
   (def nv-xml-data (parse-nv-data-file "samples/Masterfile.xml"))
+  (def nv-xml-data (parse-nv-data-file "samples/test.xml"))
 
   (defn- test-transform-efs-item-params
     [path]
@@ -686,10 +739,23 @@
        nv-definition-schema
        efs-item)))
 
+  (defn- test-transform-rf-item-params
+    [path]
+    (let [efs-item [path (-> nv-xml-data :rf-items path)]]
+      (transform-efs-item-params-to-qcn-struct
+       nv-definition-schema
+       efs-item)))
+
   ;; structured components
   (def r (test-transform-efs-item-params :/nv/item_files/ims/qp_ims_dpl_config))
   (def r (test-transform-efs-item-params :/nv/item_files/ims/qp_ims_sms_config))
   (def r (test-transform-efs-item-params :/nv/item_files/ims/qp_ims_ut_config))
+
+  (def r (test-transform-rf-item-params (keyword "/nv/item_files/rfnv/00027830")))
+  (undefined-elems-exclusively-at-end?
+   (map #(if (empty? (:params %)) 0 1) r))
+
+  (not-any? #(= % 1) (vec '(0 1 -1 0)))
 
   ;; no schema
   (def r (test-transform-efs-item-params :/nv/item_files/modem/utils/a2/bam_dynamic_config))
@@ -949,14 +1015,18 @@
         [prov-item-store nv-item-store] (separate-efs-item-stores nv-xml-data)
         [prov-item-store prov-item-errors] (transform-efs-items-to-qcn-struct
                                             nv-definition-schema prov-item-store)
+        [efs-backup-store efs-backup-errors] (transform-efs-items-to-qcn-struct
+                                            nv-definition-schema (:rf-items nv-xml-data))
         [nv-item-store nv-item-store-errors] (transform-efs-items-to-qcn-struct
                                               nv-definition-schema nv-item-store)]
     (-> qcn-data
         (assoc-in [:NV_ITEM_ARRAY] nv-items)
         (assoc-in [:NV_Items] nv-item-store)
         (assoc-in [:Provisioning_Item_Files] prov-item-store)
+        (assoc-in [:EFS_Backup] efs-backup-store)
         (assoc-in [:errors] (concat (:errors nv-definition-schema) (:errors nv-xml-data)
-                                    nv-item-errors prov-item-errors nv-item-store-errors)))))
+                                    nv-item-errors prov-item-errors nv-item-store-errors
+                                    efs-backup-errors)))))
 
 
 (comment
@@ -986,6 +1056,7 @@
     :NV_ITEM_ARRAY           -> provides legacy numbered nv item backup data
     :NV_Items                -> provides EFS nv item backup data
     :Provisioning_Item_Files -> provides EFS provisioning item data
+    :EFS_Backup              -> provides EFS based RF nv items beginning from 20000
     :errors                  -> contains prarsing errors."
 
   ([nv-definition-schema  nv-data-file-name]
@@ -999,13 +1070,18 @@
 
 (comment
 
+  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition_9640_13bands.xml"))
   (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition_9640.xml"))
   (def qcn (parse-nv-data nv-definition-schema "samples/UMC-9240P_C2_v0.07_ECE_static.xml"))
+  (def qcn (parse-nv-data nv-definition-schema "samples/test.xml"))
 
   (def qcn (parse-nv-data nv-definition-schema "samples/Masterfile.xml"))
 
 
   (println ((:efs-items nv-definition-schema) (keyword "/nv/item_files/rfnv/00028154")))
+
+  (def schema-27830 ((:efs-items nv-definition-schema) (keyword "/nv/item_files/rfnv/00027830")))
+  (:variable-size schema-27830)
 
   (def schema-content-27830 (:content ((:efs-items nv-definition-schema) (keyword "/nv/item_files/rfnv/00027830"))))
 
@@ -1027,6 +1103,7 @@
   (def qcn-content-27830 (qcn_h (keyword "/nv/item_files/rfnv/00027830")))
 
   (def mydata (:data qcn-content-27830))
+
 
   (take 50 (bytes mydata))
 

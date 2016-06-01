@@ -141,6 +141,22 @@
           items)))
 
 
+(defn- add-efs-backup-path-prefix
+  "The entries in EFS-Backup provide the mysterious 8 prefix bytes:
+   '1 0 1 1 0 0 0 0' which are added by this handler."
+  [efs-data]
+  (let [prefix-str (apply str (map char [1 0 1 1 0 0 0 0]))]
+    (reduce
+     (fn [h efs-backup-item]
+       (let [k (key efs-backup-item)
+             v (val efs-backup-item)
+             path (str (:path v))
+             path (keyword (str prefix-str(subs path 1)))]
+         (assoc h k (assoc v :path path))))
+     {}
+     efs-data)))
+
+
 (defn write-qcn-struct-to-poi-fs
   "writes  intermediate  item data  structure  as  parsed by  function
   parse-nv-data to POI filesystem."
@@ -163,7 +179,13 @@
         nv-item-efs-dir (create-dir nv-item-dir "EFS_Dir")
         nv-item-data-dir (create-dir nv-item-dir "EFS_Data")
         nv-items (write-efs-items
-                    nv-item-efs-dir nv-item-data-dir (:NV_Items qcn-struct))
+                  nv-item-efs-dir nv-item-data-dir (:NV_Items qcn-struct))
+
+        rf-item-dir (create-dir default "EFS_Backup")
+        rf-item-efs-dir (create-dir rf-item-dir "EFS_Dir")
+        rf-item-data-dir (create-dir rf-item-dir "EFS_Data")
+        rf-items (write-efs-items
+                  rf-item-efs-dir rf-item-data-dir (add-efs-backup-path-prefix (:EFS_Backup qcn-struct)))
 
         nv-numbered-items (create-dir default "NV_NUMBERED_ITEMS")
         nv-array (create-doc-stream nv-numbered-items

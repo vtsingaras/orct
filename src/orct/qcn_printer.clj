@@ -190,12 +190,14 @@
     (print-file-version-info (nv :File_Version))
     (println ">>>>> Mobile Property Info >>>>>")
     (print-mobile-property-info (nv :Mobile_Property_Info))
-    (println ">>>>> Item File Backup >>>>>")
+    (println ">>>>> NV Items >>>>>")
     (print-legacy-items (get-sorted-legacy-items nv))
-    (println ">>>>> EFS Item Backup >>>>>")
+    (println ">>>>> Item File Backup >>>>>")
     (print-efs-items (get-sorted-efs-items (nv :NV_Items)))
     (println ">>>>> Provisioning Item Files >>>>>")
     (print-efs-items (get-sorted-efs-items (nv :Provisioning_Item_Files)))
+    (println ">>>>> EFS Item Backup >>>>>")
+    (print-efs-items (get-sorted-efs-items (nv :EFS_Backup)))
     (print-nv-parser-errors nv)))
 
 

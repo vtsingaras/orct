@@ -299,11 +299,14 @@
   [schema nv]
   (let [errors (:errors nv)
         [nv-items errors1] (parse-nv-efs-data schema (nv :NV_Items))
-        [prov-items errors2] (parse-nv-efs-data schema (nv :Provisioning_Item_Files))]
+        [prov-items errors2] (parse-nv-efs-data schema (nv :Provisioning_Item_Files))
+        [rf-items errors3] (parse-nv-efs-data schema (nv :EFS_Backup))
+        ]
     (-> nv
         (assoc :NV_Items nv-items)
         (assoc :Provisioning_Item_Files prov-items)
-        (assoc :errors (concat errors errors1 errors2)))))
+        (assoc :EFS_Backup rf-items)
+        (assoc :errors (concat errors errors1 errors2 errors3)))))
 
 
 (defn read-poifs-tree-and-parse-nv-efs-data
@@ -349,6 +352,22 @@
     (readfn {} node 0)))
 
 
+(defn- remove-efs-backup-path-prefix
+  "The entries in EFS-Backup provide the mysterious 8 prefix bytes:
+   '1 0 1 1 0 0 0 0' which are removed by this handler."
+  [qcn-data]
+  (assoc qcn-data :EFS_Backup
+            (reduce
+             (fn [h efs-backup-item]
+               (let [k (key efs-backup-item)
+                     v (val efs-backup-item)
+                     path (str (:path v))
+                     path (keyword (subs path 9))]
+                 (assoc h k (assoc v :path path))))
+             {}
+             (:EFS_Backup qcn-data))))
+
+
 (defn parse-qcn-data
   "Parse Qualcomm's non-volatile phone item qcn definition data set.
 
@@ -358,23 +377,27 @@
    returns nested clojure hash map in same/similar format as generated in qcn_parser.clj:
     :NV_ITEM_ARRAY           -> provides legacy numbered nv item backup data
     :NV_Items                -> provides EFS nv item backup data
+    :EFS_Backup              -> provides nv items with ID 20000 or above (rfnv)
     :Provisioning_Item_Files -> provides EFS provisioning item data
     :errors                  -> contains prarsing errors."
 
   [nv-definition-schema  qcn-data-file-name]
   (let [qcn-input-stream (FileInputStream. qcn-data-file-name)
         fs (POIFSFileSystem. qcn-input-stream)
-        qcn-data (read-poifs-tree nv-definition-schema (.getRoot fs))]
+        qcn-data (read-poifs-tree nv-definition-schema (.getRoot fs))
+        qcn-data (remove-efs-backup-path-prefix qcn-data)]
     (-> qcn-data
         (assoc-in [:errors] (concat (:errors nv-definition-schema) (:errors qcn-data))))))
 
 
 
 (comment "usage illustration"
-  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition.xml"))
+  (def nv-definition-schema (parse-nv-definition-file "samples/NvDefinition_9640.xml"))
   (def qcn-input-stream (FileInputStream. "samples/sample.qcn"))
   (def qcn-input-stream (FileInputStream. "samples/nv-item-setup-wlan-board-complete-2015-08-14.qcn"))
   (def qcn-input-stream (FileInputStream. "test.qcn"))
+  (def qcn-input-stream (FileInputStream. "samples/test_13bands_qrtc.qcn"))
+  (def qcn-input-stream (FileInputStream. "samples/UMC-9240P_C2_v0.07_ECE_qrct.qcn"))
   (def fs (POIFSFileSystem. qcn-input-stream))
   (def nv (read-poifs-tree nv-definition-schema (.getRoot fs)))
 
