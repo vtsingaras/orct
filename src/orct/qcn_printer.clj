@@ -176,6 +176,22 @@
         (println-err))))
 
 
+
+(defn- merge-efs-item-hashes
+  "helper function to merge all efs based items together
+   by reassigning new temporary keys"
+  [& v-efs]
+  (apply merge
+         (map (fn [n e]
+                {(-> n str keyword) (val e)})
+              (iterate inc 0)
+              (mapcat vec v-efs))))
+
+(comment
+  (merge-efs-item-hashes {:0001 "one" :0002 "two"} {:0001 "three" :0002 "four"})
+  )
+
+
 (defn print-nv-item-set
 
   "prints content of specified qcn data. Function takes
@@ -184,7 +200,7 @@
    schema : parsed nv defintion schema file (parse-nv-definition-file)
    nv     : parsed qcn or xml nv data definition."
 
-  [schema nv]
+  [schema nv & {:keys [flat] :or {flat true}}]
   (let [nv (subst-with-parsed-nv-efs-data schema nv)]
     (println ">>>>> File Info >>>>>")
     (print-file-version-info (nv :File_Version))
@@ -192,12 +208,21 @@
     (print-mobile-property-info (nv :Mobile_Property_Info))
     (println ">>>>> NV Items >>>>>")
     (print-legacy-items (get-sorted-legacy-items nv))
-    (println ">>>>> Item File Backup >>>>>")
-    (print-efs-items (get-sorted-efs-items (nv :NV_Items)))
-    (println ">>>>> Provisioning Item Files >>>>>")
-    (print-efs-items (get-sorted-efs-items (nv :Provisioning_Item_Files)))
-    (println ">>>>> EFS Item Backup >>>>>")
-    (print-efs-items (get-sorted-efs-items (nv :EFS_Backup)))
+    (if flat
+      (do
+        (println ">>>>> All Items in EFS Store >>>>>")
+        (print-efs-items
+         (get-sorted-efs-items
+          (merge-efs-item-hashes (nv :NV_Items)
+                                 (nv :EFS_Backup)
+                                 (nv :Provisioning_Item_Files)))))
+      (do
+        (println ">>>>> Item File Backup >>>>>")
+        (print-efs-items (get-sorted-efs-items (nv :NV_Items)))
+        (println ">>>>> Provisioning Item Files >>>>>")
+        (print-efs-items (get-sorted-efs-items (nv :Provisioning_Item_Files)))
+        (println ">>>>> EFS Item Backup >>>>>")
+        (print-efs-items (get-sorted-efs-items (nv :EFS_Backup)))))
     (print-nv-parser-errors nv)))
 
 

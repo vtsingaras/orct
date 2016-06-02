@@ -43,6 +43,10 @@
    ["-d" "--diff XML-Masterfile file1 file2 " "diff qcn or xml data with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
    ["-t" "--diff-tool diff-executable" "diff tool to used, defaults to diff"]
+   ["-v" "--verbose" "0: default flat output, 1: show efs streams separately."
+    :id :verbosity
+    :default 0
+    :assoc-fn (fn [m k _] (update-in m [k] inc))]
    ["-h" "--help" "this help string"]])
 
 
@@ -52,7 +56,7 @@
 
 
 (defn- print-file
-  [schema-file schema file-to-print & {:keys [style output] :or {style :ascii}}]
+  [schema-file schema file-to-print & {:keys [style output verbose] :or {style :ascii verbose false}}]
   (let [p-result (condp file-ext-pred file-to-print
                    "qcn" (parse-qcn-data schema file-to-print)
                    "xml" (parse-nv-data schema file-to-print))]
@@ -61,7 +65,7 @@
       (do
         (println (format "Parsing result for file %s using schema definition %s"
                          file-to-print schema-file))
-        (print-nv-item-set schema p-result)
+        (print-nv-item-set schema p-result :flat (not verbose))
         0)
       :update-script
       (if output
@@ -134,6 +138,7 @@
         compile-file-opt (:compile options)
         diff-file-opt (:diff options)
         diff-tool-opt (or (:diff-tool options) "diff")
+        verbosity (:verbosity options)
         invalid-opts (not-empty errors)
         title-str (str
                    "ORCT: Parsing and Generation of Qualcomm Radio Calibration Data Files (QCN)\n"
@@ -158,7 +163,7 @@
           (if schema-file
             (let [schema (parse-nv-definition-file schema-file)]
               (condp #(%1 %2) options
-                :print (print-file schema-file schema print-file-opt)
+                :print (print-file schema-file schema print-file-opt :verbose (> verbosity 0))
                 :update (print-file schema-file schema update-file-opt
                                     :style :update-script :output (first arguments))
                 :compile (compile-file schema-file schema compile-file-opt (first arguments))
@@ -169,6 +174,7 @@
 
 (comment
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/sample.qcn")
+  (cli "-s" "samples/NvDefinition.xml" "-p" "samples/sample.qcn" "-v")
   (cli "-s" "samples/NvDefinition.xml" "-u" "samples/sample.qcn" "samples/update.sh")
   (cli "-s" "samples/NvDefinition.xml" "-u" "samples/sample.qcn")
   (cli "-u" "samples/sample.qcn" "samples/update.sh")
@@ -185,7 +191,6 @@
   (cli "-s" "samples/NvDefinition.xml" "-d" "samples/Masterfile.xml" "samples/Masterfile_changed.xml" "-t" "meld")
   (cli "-sxadf" "samples/NvDefinition.xml")
   (cli "--help")
-  (cli)
   )
 
 (defn -main
