@@ -799,6 +799,18 @@
              efs-item)]))
 
 
+
+(defn- byte-stream-str-to-java-array
+  [stream-str encoding]
+  (let [values (split-value-list-string stream-str)]
+    (map :val (valstr2byte-seqs values "uint8" (count values) encoding))))
+
+
+(comment
+  (byte-stream-str-to-java-array "a0 ff" "hex")
+  )
+
+
 (defn- transform-efs-items-to-qcn-struct
   "transform nv  efs data given  in format parsed from  xml definition
   (path->item  hash)  to  new  index-item  hash as  used  in  qcn  poi
@@ -814,6 +826,7 @@
                    [path params] efs-item
                    efs-schema (-> nv-definition :efs-items path)
                    compressed (-> efs-schema :compressed)
+                   is-byte-stream (= (:mapping params) "byteStream")
 
                    efs-struct
                    (try
@@ -822,7 +835,12 @@
                      (catch Throwable e [nil
                                          (do (def efs-item efs-item) (format "item path %s malformed error: %s"
                                                                              path (.getMessage e)))]))
-                   [efs-data par-errors] (aggregate-param-member-data efs-struct)
+                   [efs-data par-errors] (if is-byte-stream
+                                           (let [[byte-stream] (:content params)
+                                                 data (byte-stream-str-to-java-array
+                                                       byte-stream (:encoding params))]
+                                             [(byte-array data) '()])
+                                           (aggregate-param-member-data efs-struct))
                    efs-data (if compressed (zlib-compress efs-data) efs-data)
                    par-errors-str (pr-str (map #(str % ",") par-errors))
                    errors (if (not-empty par-errors)
