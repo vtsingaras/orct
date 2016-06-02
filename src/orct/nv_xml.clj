@@ -121,6 +121,8 @@
                              update (-> result
                                         (assoc-in [:errors] errors)
                                         (assoc-in [:efs-items name :permission ] (-> n :attrs :permission))
+                                        (assoc-in [:efs-items name :compressed ] (-> n :attrs :compressed))
+                                        (assoc-in [:efs-items name :variable-size ] (-> n :attrs :variableSize))
                                         (assoc-in [:efs-items name :content ]
                                                   (parse-nv-definition-content name content)))]
                          update)
@@ -810,6 +812,8 @@
            (try
              (let [idx-key (keyword (str/upper-case (format "%08x" idx)))
                    [path params] efs-item
+                   efs-schema (-> nv-definition :efs-items path)
+                   compressed (-> efs-schema :compressed)
 
                    efs-struct
                    (try
@@ -819,6 +823,7 @@
                                          (do (def efs-item efs-item) (format "item path %s malformed error: %s"
                                                                              path (.getMessage e)))]))
                    [efs-data par-errors] (aggregate-param-member-data efs-struct)
+                   efs-data (if compressed (zlib-compress efs-data) efs-data)
                    par-errors-str (pr-str (map #(str % ",") par-errors))
                    errors (if (not-empty par-errors)
                             (concat errors [(format "errors for efs-nv %s: %s" path par-errors-str)])

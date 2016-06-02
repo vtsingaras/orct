@@ -269,9 +269,12 @@
            values (val elem)
            path (:path values)
            data (:data values)
-           item-schema (-> schema :efs-items path :content)
+           item-schema (-> schema :efs-items path)
+           item-schema-content (-> item-schema :content)
+           compressed (-> item-schema :compressed)
+           data (if compressed (zlib-uncompress data) data)
            [params error] (if item-schema
-                             [(decode-binary-nv-params item-schema data) []]
+                             [(decode-binary-nv-params item-schema-content data) []]
                              [{} [(format "missing schema definition for nv item path %s"
                                            (key2str path))]])
            update (-> values

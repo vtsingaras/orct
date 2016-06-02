@@ -12,7 +12,9 @@
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.java.io :as io])
-  (:import java.util.Properties))
+  (:import [java.util.zip Deflater Inflater]
+           [java.io ByteArrayOutputStream]
+           java.util.Properties))
 
 
 (defn get-version
@@ -161,5 +163,53 @@
     (long2byteseq 16 -32769)
     (catch AssertionError e (str "caught exception: " (.getMessage e))))
 
+
+  )
+
+
+(defn zlib-compress
+  "compresses specified byte array by zlib algorithm"
+  [data]
+  (let [deflater (Deflater.)
+        output-stream (ByteArrayOutputStream. (alength data))
+        buffer (byte-array 1024)]
+    (. deflater setInput data)
+    (. deflater finish)
+    (loop []
+      (let [count (. deflater deflate buffer)]
+        (. output-stream write buffer 0 count)
+        (when (not (. deflater finished))
+          (recur))))
+    (. output-stream close)
+    (. output-stream toByteArray)))
+
+
+(defn zlib-uncompress
+  "uncompresses specified byte array by zlib algorithm"
+  [data]
+  (let [inflater (Inflater.)
+        output-stream (ByteArrayOutputStream. (alength data))
+        buffer (byte-array 1024)]
+    (. inflater setInput data)
+    (loop []
+      (let [count (. inflater inflate buffer)]
+        (. output-stream write buffer 0 count)
+        (when (not (. inflater finished))
+          (recur))))
+    (. output-stream close)
+    (. output-stream toByteArray)))
+
+
+
+(comment
+
+  (def input (byte-array (map int "Hello, World!,  hello, hello    hello again!")))
+  (alength input)
+
+
+  (def compressed (zlib-compress input))
+  (alength compressed)
+
+  (String. (zlib-uncompress compressed))
 
   )
