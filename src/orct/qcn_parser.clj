@@ -100,9 +100,14 @@
                            "uint64" rest-uint64-pair
                            "string" rest-str-pair
                            (throw (IllegalStateException. (format "type %s invalid!" type))))
-                      [byte-buffer dec-value] (if (:dont-repeat (meta op))
-                                                (op size byte-buffer)
-                                                (repeat-ops op size byte-buffer))]
+                      [byte-buffer dec-value] (try
+                                                (if (:dont-repeat (meta op))
+                                                  (op size byte-buffer)
+                                                  (repeat-ops op size byte-buffer))
+                                                (catch Throwable t
+                                                  (throw (IllegalStateException.
+                                                          (format "error while encoding binary data:\n%s, %s"
+                                                                  (pr-str name) (pr-str type))))))]
                   (-> out
                       (assoc :params (conj params (-> args (assoc-in [:val] dec-value))))
                       (assoc :byte-buffer byte-buffer))))
@@ -273,10 +278,14 @@
            item-schema-content (-> item-schema :content)
            compressed (-> item-schema :compressed)
            data (if compressed (zlib-uncompress data) data)
-           [params error] (if item-schema
-                             [(decode-binary-nv-params item-schema-content data) []]
-                             [{} [(format "missing schema definition for nv item path %s"
-                                           (key2str path))]])
+           [params error] (try (if item-schema
+                                 [(decode-binary-nv-params item-schema-content data) []]
+                                 [{} [(format "missing schema definition for nv item path %s"
+                                              (key2str path))]])
+                               (catch Throwable t
+                                 (throw (IllegalStateException.
+                                         (format "error while encoding key:\n%s, path: %s -> %s"
+                                                 (pr-str key) (pr-str path) (.getMessage t))))))
            update (-> values
                       (assoc :params params)
                       (assoc :errors error))]

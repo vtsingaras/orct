@@ -87,8 +87,7 @@
    into corresponding little endian unsigned integer representation.
    example: (bytes2little-endian-uint [0x03 0x01]) -> 259"
   [bytes]
-  {:pre [(<= (count bytes) 8)]
-   :post [(>= % 0)]}
+  {:pre [(<= (count bytes) 8)]}
   (bytes2little-endian bytes))
 
 (defn bytes2little-endian-int
