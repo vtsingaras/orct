@@ -39,7 +39,8 @@
    ["-u" "--update QCN-FILE|XML-Masterfile" "generate update script with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
    ["-c" "--compile XML-Masterfile QCN-Outputfile" "compile xml data with given SCHEMA definition file."
-    :validate [#(.exists (java.io.File. %)) "file must exist"]]
+    :validate [#(.exists (java.io.File. %)) "file must exist"]
+    :assoc-fn (fn [m k e] (assoc m k (if (m k) (conj (m k) e) [e])))]
    ["-d" "--diff XML-Masterfile file1 file2 " "diff qcn or xml data with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
    ["-t" "--diff-tool diff-executable" "diff tool to used, defaults to diff"]
@@ -77,17 +78,30 @@
         (do (println-err "no outputfile specified error!") -1)))))
 
 
+(defn- enforce-sequence
+  [s]
+  (if (sequential? s) s [s]))
+
 (defn- compile-file
-  [schema-file schema file-to-compile output-file]
-  (if output-file
-    (if (= (get-lc-filename-ext output-file) "qcn")
-      (let [qcn (parse-nv-data schema file-to-compile)]
-        (write-qcn-struct-to-poi-fs qcn output-file)
-        (println (format "file %s written!" output-file))
-        (print-nv-parser-errors qcn)
-        0)
-      (do (println-err (format "output file %s has wrong extention!" output-file)) -1))
-    (do (println-err "no outputfile specified error!") -1)))
+  [schema-file schema files-to-compile output-files]
+  (let [files-to-compile (enforce-sequence files-to-compile)
+        output-files (enforce-sequence output-files)]
+    (if (= (count files-to-compile) (count output-files))
+      (let [result
+            (map
+             (fn [file-to-compile output-file]
+               (if (= (get-lc-filename-ext output-file) "qcn")
+                 (let [_ (doall (println (format "==> compile %s into %s ..." file-to-compile output-file)))
+                       qcn (parse-nv-data schema file-to-compile)]
+                   (write-qcn-struct-to-poi-fs qcn output-file)
+                   (println (format "file %s written!" output-file))
+                   (print-nv-parser-errors qcn)
+                   0)
+                 (do (println-err (format "output file %s has wrong extention!" output-file)) -1)))
+             files-to-compile
+             output-files)]
+        (if (every? #(= 0 %) result) 0 -1))
+      (do (println-err "number of specificied source and target files are not equal!") -1))))
 
 
 (defn- compile-first-then-print-file-to
@@ -166,7 +180,7 @@
                 :print (print-file schema-file schema print-file-opt :verbose (> verbosity 0))
                 :update (print-file schema-file schema update-file-opt
                                     :style :update-script :output (first arguments))
-                :compile (compile-file schema-file schema compile-file-opt (first arguments))
+                :compile (compile-file schema-file schema compile-file-opt arguments)
                 :diff (diff-files schema-file schema diff-file-opt (first arguments) diff-tool-opt)))
             (do
               (println-err "both, schema and processed file needs to be specified!")
@@ -183,6 +197,12 @@
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/Masterfile.xml")
   (cli "-s" "samples/NvDefinition.xml" "-p" "samples/Masterfile.xml" "abc")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml" "abc.qcn")
+
+  (cli "-s" "samples/NvDefinition.xml"
+       "-c" "samples/Masterfile1.xml" "master1.qcn"
+       "-c" "samples/Masterfile2.xml" "master2.qcn"
+       )
+
   (cli "-s" "samples/NvDefinition.xml" "-p" "abc.qcn")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml" "abc.qxn")
   (cli "-s" "samples/NvDefinition.xml" "-c" "samples/Masterfile.xml")
