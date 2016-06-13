@@ -102,6 +102,40 @@
         ures
         (- ures (bit-shift-left 1 (* 8 (count bytes))))))))
 
+
+(defn rest-uint-n-pair
+  "take n bytes from given sequence and delivers vector with
+   remaining bytes and unsigned integer representation.
+   example (rest-uint-n-pair 2 [0x03 0x01 0xFA 0xFB]) -> [(0xFA 0xFB) 259 ]"
+  [n bytes]
+  [(drop n bytes) (bytes2little-endian-uint (take n bytes))])
+
+(def rest-uint8-pair (partial rest-uint-n-pair 1))
+(def rest-uint16-pair (partial rest-uint-n-pair 2))
+(def rest-uint32-pair (partial rest-uint-n-pair 4))
+(def rest-uint64-pair (partial rest-uint-n-pair 8))
+
+
+(defn rest-int-n-pair
+  "take n bytes from given sequence and delivers vector with
+   remaining bytes and signed integer representation.
+   example (rest-uint-n-pair 2 [0x03 0x01 0xFA 0xFB]) -> [(0xFA 0xFB) 259 ]"
+  [n bytes]
+  [(drop n bytes) (bytes2little-endian-int (take n bytes))])
+
+(def rest-int8-pair (partial rest-int-n-pair 1))
+(def rest-int16-pair (partial rest-int-n-pair 2))
+(def rest-int32-pair (partial rest-int-n-pair 4))
+(def rest-int64-pair (partial rest-int-n-pair 8))
+
+
+(defn rest-str-pair
+  "takes n bytes from given sequence and deliver a vector with
+  remaining bytes and character string."
+  [n bytes]
+  [(drop n bytes) (bytes2str (take n bytes))])
+
+
 (defn long2byteseq
   "converts an integer value (max 64 bit) into byte array.
 
@@ -212,3 +246,22 @@
   (String. (zlib-uncompress compressed))
 
   )
+
+
+(defn read-file
+  "read binary file with specified path and returns byte buffer
+   with its content"
+  [file-path]
+  (with-open [reader (clojure.java.io/input-stream file-path)]
+    (let [length (.length (clojure.java.io/file file-path))
+          buffer (byte-array length)]
+      (.read reader buffer 0 length)
+      buffer)))
+
+
+(defn write-to-file
+  "writes content which is expected to come as java byte buffer
+   to specified content"
+  [file-path content]
+  (with-open [w (java.io.FileOutputStream. file-path)]
+    (.write w content)))
