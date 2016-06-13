@@ -136,6 +136,57 @@
   [(drop n bytes) (bytes2str (take n bytes))])
 
 
+
+(defn proc-parse-struct-with-rest
+  "process a parser format structure defintion with byte stream sequence
+
+   The format structure  definition is a vector of the  hash-maps {key parse-fn}
+   where parse-fn  is the actual parsing  predicate function. It takes  the byte
+   stream sequence  as input and  generates as result  a vector where  the first
+   element is the  remaining unprocessed rest of the byte  stream and the second
+   element is the parsed result.
+
+   Example invocation:
+
+   (proc-parse-struct
+    [{::e_ident (fn [s] [(drop 16 s) (take 16 s)])}
+      {::e_type rest-uint16-pair}
+      {::e_machine rest-uint16-pair}
+      {::e_shoff rest-uint32-pair}]
+    s) -> [{::e_ident xxx ::e_type yyy ...} unprocessed-sequence]"
+  [parse-struct s]
+  (let [result
+        (reduce
+         (fn [[elf-map s] elem]
+           (let [parse (first (vals elem))
+                 [r value] (parse s)]
+             [(assoc elf-map (first (keys elem)) value) r]))
+         [{} s]
+         parse-struct)]
+    result))
+
+
+(defn proc-parse-struct
+  "process a parser format structure defintion with byte stream sequence
+
+   The format structure  definition is a vector of the  hash-maps {key parse-fn}
+   where parse-fn  is the actual parsing  predicate function. It takes  the byte
+   stream sequence  as input and  generates as result  a vector where  the first
+   element is the  remaining unprocessed rest of the byte  stream and the second
+   element is the parsed result.
+
+   Example invocation:
+
+   (proc-parse-struct
+    [{::e_ident (fn [s] [(drop 16 s) (take 16 s)])}
+      {::e_type rest-uint16-pair}
+      {::e_machine rest-uint16-pair}
+      {::e_shoff rest-uint32-pair}]
+    s) -> {::e_ident xxx ::e_type yyy ...}"
+  [parse-struct s]
+  (first (proc-parse-struct-with-rest parse-struct s)))
+
+
 (defn long2byteseq
   "converts an integer value (max 64 bit) into byte array.
 

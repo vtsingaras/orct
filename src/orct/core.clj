@@ -15,6 +15,7 @@
   (:use [orct.qcn-parser]
         [orct.qcn-printer]
         [orct.qcn-writer]
+        [orct.mbn]
         [orct.nv-xml]
         [orct.utils]
         [orct.macros])
@@ -34,14 +35,14 @@
 (def cli-options
   [["-s" "--schema SCHEMA-FILE" "xml schema definition file"
     :validate [#(.exists (java.io.File. %)) "files must exist"]]
-   ["-p" "--print QCN-FILE|XML-Masterfile" "print qcn data with given SCHEMA definition file."
+   ["-p" "--print QCN/MBN-FILE|XML-Masterfile" "print qcn data with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
-   ["-u" "--update QCN-FILE|XML-Masterfile" "generate update script with given SCHEMA definition file."
+   ["-u" "--update QCN/MBN-FILE|XML-Masterfile" "generate update script with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
    ["-c" "--compile XML-Masterfile QCN-Outputfile" "compile xml data with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]
     :assoc-fn (fn [m k e] (assoc m k (if (m k) (conj (m k) e) [e])))]
-   ["-d" "--diff XML-Masterfile file1 file2 " "diff qcn or xml data with given SCHEMA definition file."
+   ["-d" "--diff XML-Masterfile file1 file2 " "diff qcn, mbn or xml data with given SCHEMA definition file."
     :validate [#(.exists (java.io.File. %)) "file must exist"]]
    ["-t" "--diff-tool diff-executable" "diff tool to used, defaults to diff"]
    ["-v" "--verbose" "0: default flat output, 1: show efs streams separately."
@@ -60,22 +61,26 @@
   [schema-file schema file-to-print & {:keys [style output verbose] :or {style :ascii verbose false}}]
   (let [p-result (condp file-ext-pred file-to-print
                    "qcn" (parse-qcn-data schema file-to-print)
-                   "xml" (parse-nv-data schema file-to-print))]
-    (condp = style
-      :ascii
-      (do
-        (println (format "Parsing result for file %s using schema definition %s"
-                         file-to-print schema-file))
-        (print-nv-item-set schema p-result :flat (not verbose))
-        0)
-      :update-script
-      (if output
+                   "mbn" (parse-mbn-data schema file-to-print)
+                   "xml" (parse-nv-data schema file-to-print)
+                   false)]
+    (if p-result
+      (condp = style
+        :ascii
         (do
-          (redir-out output (print-nv-item-set-update-script schema p-result))
-          (println (format "file %s written!" output))
-          (print-nv-parser-errors p-result)
+          (println (format "Parsing result for file %s using schema definition %s"
+                           file-to-print schema-file))
+          (print-nv-item-set schema p-result :flat (not verbose))
           0)
-        (do (println-err "no outputfile specified error!") -1)))))
+        :update-script
+        (if output
+          (do
+            (redir-out output (print-nv-item-set-update-script schema p-result))
+            (println (format "file %s written!" output))
+            (print-nv-parser-errors p-result)
+            0)
+          (do (println-err "no outputfile specified error!") -1)))
+      (do (println-err "wrong file extension or parse error!") -1))))
 
 
 (defn- enforce-sequence
@@ -109,13 +114,16 @@
   [schema-file  schema  file-to-print  output-txt-file]
   (let [p-result (condp file-ext-pred file-to-print
                    "qcn" (parse-qcn-data schema file-to-print)
+                   "mbn" (parse-mbn-data schema file-to-print)
                    "xml" (let [output-file (java.io.File/createTempFile "orct-intermediate-diff" ".qcn")
                                ccres (compile-file schema-file schema file-to-print (str output-file))
                                result (parse-qcn-data schema output-file)
                                _ (clojure.java.io/delete-file output-file)]
-                           result))]
-    (redir-out output-txt-file (print-nv-item-set schema p-result)))
-  0)
+                           result)
+                   false)]
+    (if p-result
+      (do (redir-out output-txt-file (print-nv-item-set schema p-result)) 0)
+      (do (println-err "wrong file extension or parse error!") -1))))
 
 
 (defn- diff-files

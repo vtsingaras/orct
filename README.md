@@ -19,11 +19,7 @@ binary representation,  also denoted  as QCN  file format.  QCN stands  for QPST
 content,  an acronym  for  the  Qualcomm Product  Support  Tool software  suite.
 QPST  includes a  software  download  utility which  allows  to quickly  install
 configuration data incrementally or to backup the overall calibration data which
-is already installed on  a modem chip. On contrast to  other approaches there is
-no  need to  rebuild and  flash  complete code  images for  a parameter  change.
-Furthermore the parameters  can be splitted up and grouped  over various XML/QCN
-files which helps to manage the vast amout of product variants which are usually
-required.
+is already installed on  a modem chip.
 
 While this  approach looks very  attractive on paper, the  actual implementation
 does not comply to recent needs. In  example Voice over LTE (VoLTE) requires the
@@ -44,6 +40,14 @@ ORCT aims to fully replace QRCT's XML transformations. It is
 * sits on the JVM and runs on all major platforms
 * provides a consise functional implemenation of its core logic
 * is deployed under the terms of the GNU General Public License
+
+More recently the QCN file format is more and more replaced by the Mobile Binary
+Configuration (MBN)  file format which is  based on an ELF  container format and
+thus  more  easier  to process  on  a  target  platform.  While MBN  comes  with
+friendlier  compilation tools  where parameters  can  be entered  as clear  text
+within an Excel sheet,  there currently no tools to view the  contents of an MBN
+file. For this  reason we included a MBN  parser which can be used  to print out
+and diff an configuration for which only a MBN file is available.
 
 This program is distributed in the hope  that it will be useful, but WITHOUT ANY
 WARRANTY.

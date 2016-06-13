@@ -200,12 +200,19 @@
    schema : parsed nv defintion schema file (parse-nv-definition-file)
    nv     : parsed qcn or xml nv data definition."
 
-  [schema nv & {:keys [flat] :or {flat true}}]
-  (let [nv (subst-with-parsed-nv-efs-data schema nv)]
-    (println ">>>>> File Info >>>>>")
-    (print-file-version-info (nv :File_Version))
-    (println ">>>>> Mobile Property Info >>>>>")
-    (print-mobile-property-info (nv :Mobile_Property_Info))
+  [schema nv & {:keys [flat efs-subst] :or {flat true efs-subst true}}]
+  (let [nv (if efs-subst (subst-with-parsed-nv-efs-data schema nv) nv)]
+    (when (nv :File_Version)
+      (println ">>>>> File Info >>>>>")
+      (print-file-version-info (nv :File_Version)))
+    (when(nv :Mobile_Property_Info)
+      (println ">>>>> Mobile Property Info >>>>>")
+      (print-mobile-property-info (nv :Mobile_Property_Info)))
+    (when (nv :mcfg-version)
+      (println ">>>>> MBN File Info >>>>>")
+      (println (format "%smbn version number: %d" (tabs 6) (nv :mcfg-version))))
+    (when (nv :carrier-index-info)
+      (println (format "%scarrier index number: %d" (tabs 6) (nv :carrier-index-info))))
     (println ">>>>> NV Items >>>>>")
     (print-legacy-items (get-sorted-legacy-items nv))
     (if flat
